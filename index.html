@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080f1e" />
+    <meta name="description" content="Explore Earth science through sight and sound." />
+    <title>EarthSonic — Listen to Our Planet</title>
+    <style>
+      html.file-protocol, html.file-protocol body { min-height: 100%; margin: 0; background: #080f1e; color: #fff; font-family: Inter, system-ui, sans-serif; }
+      html.file-protocol body { min-height: 100vh; display: grid; place-items: center; padding: 28px; box-sizing: border-box; background: radial-gradient(ellipse at 72% 22%, rgba(37,99,235,.18), transparent 32rem), #080f1e; }
+      html.file-protocol #file-protocol-notice { width: min(620px, 100%); display: block; box-sizing: border-box; padding: clamp(25px, 5vw, 48px); border: 1px solid rgba(56,189,248,.27); background: rgba(16,27,48,.84); box-shadow: 0 25px 90px rgba(0,0,0,.32); }
+      html.file-protocol #file-protocol-notice .file-protocol-eyebrow { color: #87a0ba; font-family: ui-monospace, monospace; font-size: 9px; letter-spacing: .14em; }
+      html.file-protocol #file-protocol-notice h1 { margin: 14px 0 12px; font-size: clamp(30px, 6vw, 46px); font-weight: 500; letter-spacing: -.055em; }
+      html.file-protocol #file-protocol-notice p, html.file-protocol #file-protocol-notice li { color: #a9b9ca; font-size: 13px; line-height: 1.8; }
+      html.file-protocol #file-protocol-notice ol { display: grid; gap: 8px; padding-left: 22px; margin: 20px 0 0; }
+      html.file-protocol #file-protocol-notice code { padding: 3px 6px; border: 1px solid rgba(203,213,225,.16); background: rgba(8,15,30,.76); color: #7dd3fc; font-family: ui-monospace, monospace; font-size: .9em; }
+    </style>
+  </head>
+  <body>
+    <aside id="file-protocol-notice" hidden role="alert" aria-labelledby="file-protocol-title">
+      <span class="file-protocol-eyebrow">EARTHSONIC · LOCAL DEVELOPMENT</span>
+      <h1 id="file-protocol-title">Start EarthSonic with Vite</h1>
+      <p>This app uses React and TypeScript, so it needs a local development server. Opening this HTML file directly cannot run the app.</p>
+      <ol>
+        <li>Open a terminal in the EarthSonic project folder.</li>
+        <li>Run <code>npm install</code> once, then <code>npm run dev</code>.</li>
+        <li>Open <code>http://localhost:5173/</code> in your browser.</li>
+      </ol>
+    </aside>
+    <script>
+      if (location.protocol === 'file:') {
+        document.documentElement.classList.add('file-protocol');
+        document.getElementById('file-protocol-notice').hidden = false;
+      }
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

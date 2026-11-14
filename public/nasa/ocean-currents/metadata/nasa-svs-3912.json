@@ -1,0 +1,43 @@
+{
+  "record": {
+    "id": 3912,
+    "title": "Global Sea Surface Currents and Temperature",
+    "url": "https://svs.gsfc.nasa.gov/3912/",
+    "released": "2012-03-16",
+    "timeRange": {
+      "start": "2007-03-25T12:00:00Z",
+      "end": "2008-03-03T12:00:00Z"
+    },
+    "description": "ECCO2 modeled sea-surface current flows colored by corresponding sea-surface temperature. The model simulates ocean flows at all depths; this visualization uses surface flows.",
+    "temperatureLegend": [
+      { "color": "blue", "temperatureCelsius": 0 },
+      { "color": "green", "temperatureCelsius": "10–20" },
+      { "color": "yellow", "temperatureCelsius": "about 25" },
+      { "color": "red", "temperatureCelsius": 32 }
+    ],
+    "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio",
+    "numericalData": {
+      "status": "not-downloaded",
+      "note": "NASA SVS states that it identifies the datasets used but does not store the datasets themselves. The current website samples the rendered NASA visualization; it does not read ECCO2 numerical fields.",
+      "modelProduct": "ECCO2 / ECCO Cube92",
+      "candidateAccess": "https://ecco.jpl.nasa.gov/drive/files/ECCO2/"
+    }
+  },
+  "localAssets": [
+    {
+      "path": "/nasa/ocean-currents/videos/ecco2_sst_flow.webmhd.webm",
+      "source": "https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/ecco2_sst_flow.webmhd.webm",
+      "description": "960 × 540 NASA SVS assembled visualization video"
+    },
+    {
+      "path": "/nasa/ocean-currents/images/global_ecco2_temperature_currents.jpg",
+      "source": "https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/flat_global_ecco2_2028x1024.25000.jpg",
+      "description": "NASA SVS preview image"
+    },
+    {
+      "path": "/nasa/ocean-currents/images/sst_ecco2_colorbar.png",
+      "source": "https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/sst_ecco2_cbar.png",
+      "description": "NASA SVS sea-surface temperature color legend"
+    }
+  ]
+}

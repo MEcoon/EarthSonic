@@ -1,0 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #fff;
+  background: #080f1e;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --color-space: #080f1e;
+  --color-navy: #101b30;
+  --color-cosmic: #172943;
+  --color-blue: #2563eb;
+  --color-cyan: #38bdf8;
+  --color-violet: #a78bfa;
+  --color-green: #4ade80;
+  --color-white: #fff;
+  --color-silver: #cbd5e1;
+  --color-slate: #64748b;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+  --content-width: 1240px;
+  --focus-ring: 0 0 0 3px #080f1e, 0 0 0 5px var(--color-cyan);
+}
