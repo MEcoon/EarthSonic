@@ -4,6 +4,8 @@ export type FrameMetrics = {
   sourceSize: { width: number; height: number }
   samplingBasis: 'rendered-video-pixels'
   scientificMeasurementsAvailable: false
+  sampleIntervalMilliseconds: number | null
+  sampleIntervalVideoSeconds: number | null
   brightness: number
   averageRgb: { red: number; green: number; blue: number }
   dominantColors: { hex: string; share: number }[]
@@ -11,22 +13,28 @@ export type FrameMetrics = {
   warmCoolBalance: number
   spatialDetail: number
   leftRightBalance: number
+  /** Legacy scaled mean RGB difference for the last accepted sample pair (0–1); not a rate. */
   frameChange: number
+  /** Exponentially smoothed normalized RGB difference per source-video second; null until a valid interval exists. */
+  imageChangeRatePerVideoSecond: number | null
 }
 
-export type PreviousFrame = { pixels: Uint8ClampedArray; width: number; height: number; sampleIndex: number }
+export type PreviousFrame = { pixels: Uint8ClampedArray; width: number; height: number; sampleIndex: number; sampledAtMilliseconds: number; frameTimeSeconds: number; smoothedImageChangeRate: number | null }
 
 const SAMPLE_WIDTH = 96
 const SAMPLE_HEIGHT = 48
+const RATE_SMOOTHING_TIME_SECONDS = 0.5
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 const colorBinCenter = (bucket: number) => Math.round(((bucket + 0.5) / 4) * 255)
 const toHex = (red: number, green: number, blue: number) => `#${[red, green, blue].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
 
-/** Samples a downsized video frame. Returned color and motion features describe the rendering, not geophysical measurements. */
+/** Samples rendered pixels. frameChange preserves the legacy scaled difference index; the rate is smoothed difference per source-video second, never a physical speed. */
 export function analyzeRenderedVideoFrame(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
   previous?: PreviousFrame,
+  sampledAtMilliseconds = performance.now(),
+  resetChangeBaseline = false,
 ): { metrics: FrameMetrics; previous: PreviousFrame } {
   if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
     throw new Error('The NASA video frame is not ready to sample yet.')
@@ -42,6 +50,8 @@ export function analyzeRenderedVideoFrame(
   } catch {
     throw new Error('The NASA video can play, but its host does not allow pixel sampling from this page (cross-origin access).')
   }
+  const frameTimeSeconds = video.currentTime
+  const sourceTimeMovedBackward = previous !== undefined && frameTimeSeconds < previous.frameTimeSeconds
 
   let lightTotal = 0
   let redTotal = 0
@@ -80,13 +90,31 @@ export function analyzeRenderedVideoFrame(
       regionCounts[region]++
       if (x > 0) edgeTotal += Math.abs(gray - luma[y * SAMPLE_WIDTH + x - 1])
       if (y > 0) edgeTotal += Math.abs(gray - luma[(y - 1) * SAMPLE_WIDTH + x])
-      if (previous && previous.width === SAMPLE_WIDTH && previous.height === SAMPLE_HEIGHT) {
+      if (!resetChangeBaseline && !sourceTimeMovedBackward && previous && previous.width === SAMPLE_WIDTH && previous.height === SAMPLE_HEIGHT) {
         changeTotal += (Math.abs(pixels[pixel] - previous.pixels[pixel]) + Math.abs(pixels[pixel + 1] - previous.pixels[pixel + 1]) + Math.abs(pixels[pixel + 2] - previous.pixels[pixel + 2])) / (3 * 255)
         validChangePixels++
       }
     }
   }
   const count = SAMPLE_WIDTH * SAMPLE_HEIGHT
+  const rawSampleIntervalVideoSeconds = previous && !resetChangeBaseline ? frameTimeSeconds - previous.frameTimeSeconds : null
+  const hasFrameDifference = validChangePixels > 0
+  const rawMeanDifference = hasFrameDifference ? changeTotal / validChangePixels : 0
+  const sampleIntervalVideoSeconds = rawSampleIntervalVideoSeconds !== null && rawSampleIntervalVideoSeconds > 0
+    ? rawSampleIntervalVideoSeconds
+    : null
+  const canCalculateRate = hasFrameDifference && sampleIntervalVideoSeconds !== null
+  const instantaneousRate = canCalculateRate ? rawMeanDifference / sampleIntervalVideoSeconds : null
+  // A seek, backwards time movement, or changed pixels at a repeated timestamp establishes
+  // a new baseline. Never keep a stale rate when no positive source-time interval exists.
+  const invalidRateInterval = hasFrameDifference && sampleIntervalVideoSeconds === null
+  const previousRate = resetChangeBaseline || sourceTimeMovedBackward || invalidRateInterval
+    ? null
+    : previous?.smoothedImageChangeRate ?? null
+  const smoothingAlpha = canCalculateRate ? 1 - Math.exp(-sampleIntervalVideoSeconds / RATE_SMOOTHING_TIME_SECONDS) : 0
+  const smoothedImageChangeRate = instantaneousRate === null
+    ? previousRate
+    : (previousRate ?? 0) + smoothingAlpha * (instantaneousRate - (previousRate ?? 0))
   const dominantColors = [...colorCounts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
@@ -102,10 +130,14 @@ export function analyzeRenderedVideoFrame(
   return {
     metrics: {
       sampleIndex: (previous?.sampleIndex ?? 0) + 1,
-      frameTimeSeconds: video.currentTime,
+      frameTimeSeconds,
       sourceSize: { width: video.videoWidth, height: video.videoHeight },
       samplingBasis: 'rendered-video-pixels',
       scientificMeasurementsAvailable: false,
+      sampleIntervalMilliseconds: sampleIntervalVideoSeconds !== null
+        ? Math.max(0, sampledAtMilliseconds - previous!.sampledAtMilliseconds)
+        : null,
+      sampleIntervalVideoSeconds,
       brightness: clamp01(lightTotal / count),
       averageRgb: { red: Math.round(redTotal / count * 255), green: Math.round(greenTotal / count * 255), blue: Math.round(blueTotal / count * 255) },
       dominantColors,
@@ -118,8 +150,10 @@ export function analyzeRenderedVideoFrame(
       warmCoolBalance: clamp01((redTotal / count - blueTotal / count + 1) / 2),
       spatialDetail: clamp01(edgeTotal / (count * 2) * 2.5),
       leftRightBalance: clamp01((leftLightTotal / (SAMPLE_HEIGHT * SAMPLE_WIDTH / 2) - rightLightTotal / (SAMPLE_HEIGHT * SAMPLE_WIDTH / 2) + 1) / 2),
+      // Keep the established mapping scale. This is an image-change index, not change per second.
       frameChange: validChangePixels ? clamp01(changeTotal / validChangePixels * 2) : 0,
+      imageChangeRatePerVideoSecond: smoothedImageChangeRate,
     },
-    previous: { pixels: new Uint8ClampedArray(pixels), width: SAMPLE_WIDTH, height: SAMPLE_HEIGHT, sampleIndex: (previous?.sampleIndex ?? 0) + 1 },
+    previous: { pixels: new Uint8ClampedArray(pixels), width: SAMPLE_WIDTH, height: SAMPLE_HEIGHT, sampleIndex: (previous?.sampleIndex ?? 0) + 1, sampledAtMilliseconds, frameTimeSeconds, smoothedImageChangeRate },
   }
 }

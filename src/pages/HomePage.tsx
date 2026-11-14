@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowRight, AudioLines, Globe2, Pause, Play, Waves } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { ExperienceCard } from '../components/earth/ExperienceCard'
 import { PageContainer } from '../components/layout/PageContainer'
 import { SectionHeader } from '../components/ui/SectionHeader'
-import { experiences } from '../data/experiences'
 
 export function HomePage() {
   const [speaking, setSpeaking] = useState(false)
@@ -45,31 +43,30 @@ export function HomePage() {
         <div className="wave-ring wave-a" /><div className="wave-ring wave-b" />
       </div>
     </section>
-    <PageContainer className="intro-strip"><span className="eyebrow">A NEW WAY TO EXPERIENCE OUR PLANET</span><p>Scientific visualizations hold patterns that can be seen—and heard.</p></PageContainer>
+    <PageContainer className="intro-strip"><span className="eyebrow">A NEW WAY TO EXPERIENCE NASA #3912</span><p>Patterns in one ocean visualization can be seen—and heard.</p></PageContainer>
     <section className="featured-section page-container">
-      <div className="featured-header"><SectionHeader eyebrow="NASA SVS #3912">Ocean patterns worth a closer listen.</SectionHeader><Link className="text-link" to="/explore">Explore the visualization <ArrowRight size={15} /></Link></div>
-      <div className="experience-grid featured-grid">{experiences.map((experience) => <ExperienceCard key={experience.id} experience={experience} />)}</div>
-      <p className="nasa-credit-note">NASA #3912 is a rendered ECCO2 visualization. EarthSonic analyzes sampled pixels; it does not currently load the underlying numerical fields.</p>
+      <div className="featured-header"><SectionHeader eyebrow="NASA SVS #3912">One visualization. Many ways to listen.</SectionHeader><Link className="text-link" to="/explore">Explore NASA #3912 <ArrowRight size={15} /></Link></div>
+      <p className="nasa-credit-note">NASA #3912 visualizes ECCO2-modeled sea surface currents colored by temperature. EarthSonic samples the rendered video pixels; it does not load the underlying numerical fields.</p>
     </section>
     <section className="feature-section page-container" id="how-it-works">
       <SectionHeader eyebrow="SEE · HEAR · UNDERSTAND">Explore Earth in another dimension.</SectionHeader>
       <div className="feature-grid">
-        <article className="feature-item"><Globe2 /><span className="eyebrow">01 / SEE</span><h3>Explore the science</h3><p>Discover Earth systems through scientific visualizations and clear context.</p></article>
+        <article className="feature-item"><Globe2 /><span className="eyebrow">01 / SEE</span><h3>Explore the ocean</h3><p>Inspect NASA #3912 with source-grounded scientific context.</p></article>
         <article className="feature-item"><AudioLines /><span className="eyebrow">02 / HEAR</span><h3>Listen to patterns</h3><p>Experience visual data as sound, with mappings that are explained as you listen.</p></article>
         <article className="feature-item"><Waves /><span className="eyebrow">03 / UNDERSTAND</span><h3>Make new connections</h3><p>Use multiple senses to notice change and learn what each sound represents.</p></article>
       </div>
     </section>
     <section className="pipeline-section page-container">
-      <SectionHeader eyebrow="HOW EARTHSONIC WORKS">From Earth data to sound.</SectionHeader>
+      <SectionHeader eyebrow="HOW EARTHSONIC WORKS">From a NASA visualization to sound.</SectionHeader>
       <ol className="pipeline-list" aria-label="EarthSonic sonification process">
-        <li><span>01</span><b>VISUAL</b><small>Choose a NASA visualization</small></li><li><span>02</span><b>ANALYZE</b><small>Examine supported data or image features</small></li><li><span>03</span><b>TRANSLATE</b><small>Map a stated feature to sound</small></li><li><span>04</span><b>LISTEN</b><small>Hear the interpretation and its limits</small></li>
+        <li><span>01</span><b>VISUAL</b><small>View NASA SVS #3912</small></li><li><span>02</span><b>ANALYZE</b><small>Sample rendered image features</small></li><li><span>03</span><b>TRANSLATE</b><small>Artistically map image features to sound</small></li><li><span>04</span><b>LISTEN</b><small>Hear the interpretation and its limits</small></li>
       </ol>
-      <p className="pipeline-note">This experience uses rendered video pixels. It does not claim to sonify original current speed or calibrated temperature measurements.</p>
+      <p className="pipeline-note">This experience samples rendered video pixels. It does not sonify original ECCO2 numerical fields, current speed, or calibrated temperature measurements.</p>
     </section>
     <section className="accessibility-preview page-container">
       <div><span className="eyebrow">SCIENCE FOR EVERYONE</span><h2>Earth science belongs to everyone.</h2><p>Audio-first exploration, spoken context, clear controls, and text descriptions offer more ways to understand the science.</p></div>
       <div className="eyes-preview"><span className="eyebrow">CLOSE YOUR EYES MODE · SPOKEN PREVIEW</span><div className="preview-player"><button className="preview-play" type="button" onClick={toggleSpeechPreview} aria-label={speaking ? 'Stop spoken preview' : 'Play spoken preview'}>{speaking ? <Pause size={14} /> : <Play size={14} />}</button><div><b>{speaking ? 'Speaking the introduction' : 'Listen to the explanation'}</b><small>Browser speech · short EarthSonic introduction</small></div></div><small className="preview-note" role="status">{speechMessage}</small></div>
     </section>
-    <section className="next-step page-container"><div><span className="eyebrow">THE EARTHSONIC EXPERIENCE</span><h2>Begin with curiosity.</h2><p>Explore visualizations and learn how sound can reveal their changing patterns.</p></div><Link className="button button-outline" to="/explore">Start exploring <ArrowRight size={17} /></Link></section>
+    <section className="next-step page-container"><div><span className="eyebrow">THE EARTHSONIC EXPERIENCE</span><h2>Begin with curiosity.</h2><p>Explore NASA #3912 and learn how rendered-image features shape its sound.</p></div><Link className="button button-outline" to="/explore">Start exploring <ArrowRight size={17} /></Link></section>
   </>
 }

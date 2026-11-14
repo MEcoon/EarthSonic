@@ -79,7 +79,7 @@ export class SonificationEngine {
     const now = this.context.currentTime
     this.tone.frequency.setTargetAtTime(controls.toneHz, now, 0.06)
     this.overtone.frequency.setTargetAtTime(controls.toneHz * 2, now, 0.06)
-    this.pulse.frequency.setTargetAtTime(controls.pulseDensityHz, now, 0.08)
+    this.pulse.frequency.setTargetAtTime(controls.modulationRateHz, now, 0.08)
     this.mappingGain.gain.setTargetAtTime(Math.max(0, Math.min(1, controls.amplitude)), now, 0.08)
     this.panner.pan.setTargetAtTime(controls.pan, now, 0.08)
   }

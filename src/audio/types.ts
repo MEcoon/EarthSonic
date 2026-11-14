@@ -1,6 +1,6 @@
 export type SonificationControls = {
   toneHz: number
-  pulseDensityHz: number
+  modulationRateHz: number
   amplitude: number
   pan: number
   interpretation: string
@@ -16,7 +16,7 @@ export type SoundPreset = {
 
 export const soundPresets: SoundPreset[] = [
   { id: 'ambient', name: 'Ambient', description: 'A soft, filtered tone with a gentle harmonic layer.' },
-  { id: 'piano', name: 'Piano', description: 'A rounded, harmonic piano-style tone; it preserves the same data-driven pitch and pulse.' },
-  { id: 'electronic', name: 'Electronic', description: 'A brighter sawtooth tone with the same mapped pitch, pulse, and stereo position.' },
+  { id: 'piano', name: 'Piano', description: 'A rounded, harmonic piano-style tone; it preserves the same image-feature mappings.' },
+  { id: 'electronic', name: 'Electronic', description: 'A brighter sawtooth tone with the same image-feature mappings.' },
   { id: 'minimal', name: 'Minimal', description: 'A simple sine tone with no added harmonic layer.' },
 ]

@@ -6,9 +6,9 @@ import { SectionHeader } from '../components/ui/SectionHeader'
 const pipeline = [
   ['01', 'NASA source', 'Use a documented NASA visualization and retain its source record.'],
   ['02', 'Frame capture', 'Read a small sample from the frame currently rendered in the browser.'],
-  ['03', 'Visual analysis', 'Measure visible brightness, color balance, spatial detail, and frame change.'],
-  ['04', 'Normalization', 'Keep image features in bounded ranges for stable, repeatable mappings.'],
-  ['05', 'Sound mapping', 'Map stated visual features to pitch, pulse density, sound intensity, and stereo position.'],
+  ['03', 'Rendered-image analysis', 'Calculate image brightness, rendered-pixel color balance, spatial pixel variation, and smoothed image change per source-video second.'],
+  ['04', 'Normalization', 'Keep selected image features in bounded ranges for stable, repeatable artistic mappings.'],
+  ['05', 'Artistic sound mapping', 'Map stated visual features to pitch, amplitude-modulation rate, sound level, and stereo position.'],
   ['06', 'Audio synthesis', 'Generate sound locally with the Web Audio API after a user action.'],
   ['07', 'Listen and compare', 'Keep the source context and mapping limits available while listening.'],
 ]
@@ -43,15 +43,15 @@ export function AboutPage() {
       <div className="about-integrity-heading"><span className="eyebrow">SCIENTIFIC INTEGRITY</span><h2 id="about-integrity-heading">A sonification is an interpretation.</h2><p>EarthSonic does not claim to record ocean currents. It turns supported information into sound while keeping its source and limits visible.</p></div>
       <div className="integrity-grid">
         <article><span className="eyebrow">01 · ORIGINAL MEASUREMENTS</span><h3>Scientific values</h3><p>Measurements and model fields belong to their NASA source and are only shown as values when they are actually available to the experience.</p></article>
-        <article><span className="eyebrow">02 · RENDERED VISUALIZATION</span><h3>Pixels in a frame</h3><p>Color and movement are visual encodings. The active demo samples rendered brightness, color balance, detail, and frame change.</p></article>
+        <article><span className="eyebrow">02 · RENDERED VISUALIZATION</span><h3>Pixels in a frame</h3><p>Color and movement are visual encodings. The demo samples rendered-image brightness, color balance, spatial pixel variation, and image change between samples. Its sound mapping uses a smoothed change rate based on source-video timestamps, not a physical motion measurement.</p></article>
         <article><span className="eyebrow">03 · DERIVED ANALYSIS</span><h3>Perceptual features</h3><p>Frame features are normalized for the sound engine. They are not calibrated temperature or current speed.</p></article>
-        <article><span className="eyebrow">04 · GENERATED AUDIO</span><h3>A repeatable mapping</h3><p>Pitch, pulse density, sound intensity, and stereo position follow documented image features. Timbre presets change waveform and filtering, not the mapping.</p></article>
+        <article><span className="eyebrow">04 · GENERATED AUDIO</span><h3>An artistic mapping</h3><p>Pitch, amplitude-modulation rate, sound level, and stereo position artistically map rendered-image features to audio. Timbre presets change waveform and filtering, not the mapping.</p></article>
       </div>
       <a className="about-source-link" href="https://svs.gsfc.nasa.gov/3912/" target="_blank" rel="noreferrer">NASA SVS #3912: Global Sea Surface Currents and Temperature <ArrowUpRight size={14} /></a>
     </section>
 
     <section className="about-accessibility" aria-labelledby="about-accessibility-heading">
-      <div><span className="eyebrow">ACCESSIBLE BY DESIGN</span><h2 id="about-accessibility-heading">More than one way to explore.</h2><p>Open Accessibility in the global navigation to adjust the experience. Keyboard and assistive technology support remains available throughout the site.</p><Link className="button button-outline" to="/discover">Explore audio-first learning <ArrowRight size={15} /></Link></div>
+      <div><span className="eyebrow">ACCESSIBLE BY DESIGN</span><h2 id="about-accessibility-heading">More than one way to explore.</h2><p>Open Accessibility in the global navigation to adjust the experience. Keyboard and assistive technology support remains available throughout the site.</p><Link className="button button-outline" to="/explore">Open the Science Guide <ArrowRight size={15} /></Link></div>
       <ul>{[
         [Headphones, 'Audio-first controls and persistent playback'],
         [Keyboard, 'Keyboard navigation, skip link, and playback shortcuts'],

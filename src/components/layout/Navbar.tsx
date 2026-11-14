@@ -4,18 +4,15 @@ import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useSonification } from '../../audio/SonificationContext'
 
 const links = [
-  ['Home', '/'], ['Explore', '/explore'], ['Studio', '/studio'],
-  ['Earth Radio', '/earth-radio'], ['Discover', '/discover'], ['About', '/about'],
+  ['Home', '/'], ['Explore', '/explore'], ['Studio', '/studio'], ['About', '/about'],
 ] as const
 const readSetting = (key: string, fallback: boolean) => {
   try { return localStorage.getItem(key) === null ? fallback : localStorage.getItem(key) === 'true' } catch { return fallback }
 }
 const pageSummaries: Record<string, string> = {
-  '/': 'EarthSonic home. Explore NASA SVS visualization 3912 of global sea surface currents and temperature and learn how rendered image features become sound.',
-  '/explore': 'Explore NASA SVS 3912. View ECCO2 surface-current flows colored by sea surface temperature and open the Studio.',
+  '/': 'EarthSonic home. Explore the single NASA SVS visualization 3912 of global sea surface currents and temperature.',
+  '/explore': 'Explore NASA SVS 3912, hear the sound-mapping quiz, and read the structured Science Guide.',
   '/studio': 'Sonification Studio. Play NASA SVS 3912, inspect rendered pixel features, and hear the documented image-derived sound mapping.',
-  '/earth-radio': 'Earth Radio. Listen to a continuous generated sound interpretation of NASA SVS 3912. Favorites and playlists are saved on this device.',
-  '/discover': 'Discover NASA SVS 3912 by sound. Listen to a generated clue, guess which rendered image feature controls pitch, and ask the local Earth Interpreter about the ocean visualization.',
   '/about': 'About EarthSonic. Learn how NASA SVS 3912 is analyzed and sonified, including the scientific limits of image-derived sound.',
 }
 
