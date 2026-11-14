@@ -68,9 +68,9 @@ export function Navbar() {
   return <header className="site-header">
     <div className="page-container nav-inner">
       <Link className="brand" to="/" aria-label="EarthSonic home"><span className="brand-symbol" aria-hidden="true"><AudioLines size={19} /></span><span>EARTH<span className="brand-light">SONIC</span></span></Link>
-      <button className="mobile-menu-button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? 'Close navigation' : 'Open navigation'}>{open ? <X size={21} /> : <Menu size={21} />}</button>
-      <nav className={`primary-nav ${open ? 'is-open' : ''}`} aria-label="Main navigation">{links.map(([label, to]) => <NavLink key={to} to={to} end={to === '/'} onClick={() => setOpen(false)}>{label}</NavLink>)}</nav>
-      <button className="accessibility-button" onClick={() => setAccessibilityOpen(!accessibilityOpen)} aria-expanded={accessibilityOpen} aria-controls="accessibility-panel"><Accessibility size={17} /><span>Accessibility</span></button>
+      <button className="mobile-menu-button" type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="primary-navigation" aria-label={open ? 'Close navigation' : 'Open navigation'}>{open ? <X size={21} /> : <Menu size={21} />}</button>
+      <nav className={`primary-nav ${open ? 'is-open' : ''}`} id="primary-navigation" aria-label="Main navigation">{links.map(([label, to]) => <NavLink key={to} to={to} end={to === '/'} onClick={() => setOpen(false)}>{label}</NavLink>)}</nav>
+      <button className="accessibility-button" type="button" aria-label="Accessibility settings" onClick={() => setAccessibilityOpen(!accessibilityOpen)} aria-expanded={accessibilityOpen} aria-controls="accessibility-panel"><Accessibility size={17} /><span>Accessibility</span></button>
     </div>
     {accessibilityOpen && <section className="accessibility-panel page-container" id="accessibility-panel" aria-label="Accessibility settings">
       <div className="a11y-panel-heading"><strong>Accessibility</strong><span>Settings are saved on this device.</span></div>

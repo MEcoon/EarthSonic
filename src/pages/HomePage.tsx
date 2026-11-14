@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
-import { ArrowDown, ArrowRight, AudioLines, Globe2, Pause, Play, Waves } from 'lucide-react'
+import { ArrowDown, ArrowRight, AudioLines, Pause, Waves } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PageContainer } from '../components/layout/PageContainer'
-import { SectionHeader } from '../components/ui/SectionHeader'
+import './HomePage.css'
+
+const sourceImage = '/nasa/ocean-currents/images/global_ecco2_temperature_currents.jpg'
+const sourceVideo = '/nasa/ocean-currents/videos/ecco2_sst_flow.webmhd.webm'
 
 export function HomePage() {
   const [speaking, setSpeaking] = useState(false)
-  const [speechMessage, setSpeechMessage] = useState('Turn it on from Accessibility to reduce visual decoration and hear a summary of the current page.')
+  const [speechMessage, setSpeechMessage] = useState('')
+
   useEffect(() => () => { window.speechSynthesis?.cancel() }, [])
 
-  const toggleSpeechPreview = () => {
+  const toggleSpeechSummary = () => {
     if (!('speechSynthesis' in window)) {
       setSpeechMessage('Spoken summaries are not supported in this browser.')
       return
@@ -17,56 +21,99 @@ export function HomePage() {
     if (speaking) {
       window.speechSynthesis.cancel()
       setSpeaking(false)
+      setSpeechMessage('Spoken summary stopped.')
       return
     }
     window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance('EarthSonic helps you explore NASA visualization number 3912, global sea surface currents and temperature, through sight and sound. Listen to a sound interpretation derived from video pixels and learn how visible patterns shape the audio.')
+    const utterance = new SpeechSynthesisUtterance('EarthSonic explores NASA visualization number 3912, global sea surface currents and temperature, through sight and sound. NASA provides a rendered visualization of ECCO2 modeled ocean currents and temperature. EarthSonic analyzes visual features from the rendered video and maps selected features to sound as an artistic interpretation. It does not sonify the original numerical fields or represent actual ocean sounds.')
     utterance.rate = 0.92
-    utterance.onstart = () => { setSpeaking(true); setSpeechMessage('Spoken preview is playing.') }
-    utterance.onend = () => { setSpeaking(false); setSpeechMessage('Spoken preview finished.') }
-    utterance.onerror = () => { setSpeaking(false); setSpeechMessage('Spoken preview could not play. Use the Accessibility settings for another page summary.') }
+    utterance.onstart = () => { setSpeaking(true); setSpeechMessage('Spoken summary is playing.') }
+    utterance.onend = () => { setSpeaking(false); setSpeechMessage('Spoken summary finished.') }
+    utterance.onerror = () => { setSpeaking(false); setSpeechMessage('Spoken summary could not play. Use the Accessibility settings for a page summary.') }
     window.speechSynthesis.speak(utterance)
   }
 
-  return <>
-    <section className="hero page-container">
-      <div className="hero-copy">
-        <span className="eyebrow"><span className="status-dot" /> NASA SVS #3912 · OCEAN SONIFICATION</span>
-        <h1>WHAT DOES<br />OUR OCEAN <span>SOUND LIKE?</span></h1>
-        <p>Explore NASA’s global sea surface currents and temperature visualization through sight and sound. Hear an interpretation derived from rendered video features.</p>
-        <div className="hero-actions"><Link className="button button-primary" to="/explore">Explore the ocean <ArrowRight size={17} /></Link><a className="button button-quiet" href="#how-it-works">Discover how it works <ArrowDown size={16} /></a></div>
-        <span className="hero-tagline">Science has a sound.</span>
+  return <div className="home-page">
+    <section className="home-hero" aria-labelledby="home-title">
+      <img className="home-hero-image" src={sourceImage} alt="NASA SVS #3912 visualization of global sea surface currents colored by modeled sea surface temperature." fetchPriority="high" />
+      <div className="home-hero-inner page-container">
+        <div className="home-hero-copy">
+          <span className="home-eyebrow"><i aria-hidden="true" /> NASA SVS #3912 <span aria-hidden="true">/</span> AN EXPERIMENT IN LISTENING</span>
+          <h1 id="home-title">THE OCEAN<br />HAS A <em>SOUND.</em></h1>
+          <p>What if you could listen to the movement of our oceans? Explore NASA&apos;s global sea surface currents and temperature visualization through an experimental sound interpretation.</p>
+          <div className="home-hero-actions">
+            <Link className="home-cta home-cta-primary" to="/studio">Experience the ocean <ArrowRight size={18} aria-hidden="true" /></Link>
+            <Link className="home-cta home-cta-secondary" to="/explore">Explore the science <ArrowDown size={17} aria-hidden="true" /></Link>
+          </div>
+          <p className="home-hero-disclaimer">An artistic interpretation of rendered pixels — not measured ocean sound.</p>
+        </div>
+        <div className="home-hero-caption" aria-hidden="true"><span>GLOBAL SURFACE CURRENTS</span><span>NASA / GODDARD SPACE FLIGHT CENTER</span></div>
       </div>
-      <div className="hero-visual" aria-label="NASA #3912 global ocean current and temperature visualization, with decorative orbital lines" role="img">
-        <div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="earth-globe"><div className="earth-shade" /><div className="earth-grid" /></div>
-        <div className="visual-coordinate coordinate-one">BLUE MARBLE · NASA</div><div className="visual-coordinate coordinate-two">LISTEN / EXPLORE</div>
-        <div className="wave-ring wave-a" /><div className="wave-ring wave-b" />
+      <a className="home-scroll-cue" href="#experience"><span>SCROLL TO EXPLORE</span><ArrowDown size={15} aria-hidden="true" /></a>
+    </section>
+
+    <section className="home-experience page-container" id="experience" aria-labelledby="experience-title">
+      <div className="home-section-heading">
+        <span className="home-section-index">01 <i /> THE EXPERIENCE</span>
+        <h2 id="experience-title">See the ocean.<br /><em>Hear its patterns.</em></h2>
       </div>
-    </section>
-    <PageContainer className="intro-strip"><span className="eyebrow">A NEW WAY TO EXPERIENCE NASA #3912</span><p>Patterns in one ocean visualization can be seen—and heard.</p></PageContainer>
-    <section className="featured-section page-container">
-      <div className="featured-header"><SectionHeader eyebrow="NASA SVS #3912">One visualization. Many ways to listen.</SectionHeader><Link className="text-link" to="/explore">Explore NASA #3912 <ArrowRight size={15} /></Link></div>
-      <p className="nasa-credit-note">NASA #3912 visualizes ECCO2-modeled sea surface currents colored by temperature. EarthSonic samples the rendered video pixels; it does not load the underlying numerical fields.</p>
-    </section>
-    <section className="feature-section page-container" id="how-it-works">
-      <SectionHeader eyebrow="SEE · HEAR · UNDERSTAND">Explore Earth in another dimension.</SectionHeader>
-      <div className="feature-grid">
-        <article className="feature-item"><Globe2 /><span className="eyebrow">01 / SEE</span><h3>Explore the ocean</h3><p>Inspect NASA #3912 with source-grounded scientific context.</p></article>
-        <article className="feature-item"><AudioLines /><span className="eyebrow">02 / HEAR</span><h3>Listen to patterns</h3><p>Experience visual data as sound, with mappings that are explained as you listen.</p></article>
-        <article className="feature-item"><Waves /><span className="eyebrow">03 / UNDERSTAND</span><h3>Make new connections</h3><p>Use multiple senses to notice change and learn what each sound represents.</p></article>
+      <div className="home-experience-body">
+        <p className="home-experience-lead">A year of modeled ocean movement, translated into a new way to pay attention.</p>
+        <p>NASA&apos;s visualization shows global sea surface currents and temperature from the ECCO2 model. EarthSonic samples visual features from the rendered video, then maps selected features to sound parameters.</p>
+        <p>The result is an experiment in listening to a scientific visualization. It is an artistic pixel-based sonification—not a direct reading of ECCO2 numerical fields or a recording of the ocean.</p>
       </div>
+      <figure className="home-still">
+        <img src={sourceImage} alt="Rendered NASA map showing global ocean current paths and the source visualization's color variation." loading="lazy" />
+        <figcaption><span>NASA SVS #3912 · RENDERED VISUALIZATION</span><span>ECCO2 MODEL · 2007–2008</span></figcaption>
+      </figure>
     </section>
-    <section className="pipeline-section page-container">
-      <SectionHeader eyebrow="HOW EARTHSONIC WORKS">From a NASA visualization to sound.</SectionHeader>
-      <ol className="pipeline-list" aria-label="EarthSonic sonification process">
-        <li><span>01</span><b>VISUAL</b><small>View NASA SVS #3912</small></li><li><span>02</span><b>ANALYZE</b><small>Sample rendered image features</small></li><li><span>03</span><b>TRANSLATE</b><small>Artistically map image features to sound</small></li><li><span>04</span><b>LISTEN</b><small>Hear the interpretation and its limits</small></li>
-      </ol>
-      <p className="pipeline-note">This experience samples rendered video pixels. It does not sonify original ECCO2 numerical fields, current speed, or calibrated temperature measurements.</p>
+
+    <section className="home-process" aria-labelledby="process-title">
+      <PageContainer>
+        <div className="home-process-header">
+          <span className="home-section-index">02 <i /> HOW IT WORKS</span>
+          <h2 id="process-title">From the image<br />to <em>the sound.</em></h2>
+          <p>Three steps connect NASA&apos;s rendered image to an original, experimental sound.</p>
+        </div>
+        <ol className="home-steps">
+          <li><span className="home-step-number">01</span><div><span className="home-step-label">THE SOURCE</span><h3>NASA visualization</h3><p>The source video visualizes ECCO2-modeled global sea surface currents and temperature.</p></div></li>
+          <li><span className="home-step-number">02</span><div><span className="home-step-label">THE ANALYSIS</span><h3>Rendered image features</h3><p>EarthSonic samples selected visual features from rendered video frames. It does not read the model&apos;s numerical fields.</p></div></li>
+          <li><span className="home-step-number">03</span><div><span className="home-step-label">THE INTERPRETATION</span><h3>Artistic sound mapping</h3><p>Image features shape pitch, level, stereo position and modulation. The sound is an artistic interpretation, not actual ocean audio.</p></div></li>
+        </ol>
+        <div className="home-summary-control">
+          <button type="button" onClick={toggleSpeechSummary} aria-label={speaking ? 'Stop spoken summary' : 'Play spoken summary'}>{speaking ? <Pause size={16} aria-hidden="true" /> : <AudioLines size={17} aria-hidden="true" />}{speaking ? 'Stop spoken summary' : 'Listen to a spoken summary'}</button>
+          <span role="status" aria-live="polite">{speechMessage}</span>
+        </div>
+      </PageContainer>
     </section>
-    <section className="accessibility-preview page-container">
-      <div><span className="eyebrow">SCIENCE FOR EVERYONE</span><h2>Earth science belongs to everyone.</h2><p>Audio-first exploration, spoken context, clear controls, and text descriptions offer more ways to understand the science.</p></div>
-      <div className="eyes-preview"><span className="eyebrow">CLOSE YOUR EYES MODE · SPOKEN PREVIEW</span><div className="preview-player"><button className="preview-play" type="button" onClick={toggleSpeechPreview} aria-label={speaking ? 'Stop spoken preview' : 'Play spoken preview'}>{speaking ? <Pause size={14} /> : <Play size={14} />}</button><div><b>{speaking ? 'Speaking the introduction' : 'Listen to the explanation'}</b><small>Browser speech · short EarthSonic introduction</small></div></div><small className="preview-note" role="status">{speechMessage}</small></div>
+
+    <section className="home-studio page-container" aria-labelledby="studio-preview-title">
+      <div className="home-studio-copy">
+        <span className="home-section-index">03 <i /> ENTER THE STUDIO</span>
+        <h2 id="studio-preview-title">Close your eyes.<br /><em>Listen.</em></h2>
+        <p>Watch the NASA visualization and hear how its rendered image features shape the sound. The Studio explains every mapping as you explore.</p>
+        <Link className="home-cta home-cta-primary" to="/studio">Open the Studio <ArrowRight size={18} aria-hidden="true" /></Link>
+        <span className="home-studio-note"><Waves size={15} aria-hidden="true" /> Sound is generated from image features in your browser.</span>
+      </div>
+      <figure className="home-video-frame">
+        <video controls muted playsInline preload="none" poster={sourceImage} aria-label="Muted preview of the NASA SVS #3912 global sea surface currents and temperature visualization.">
+          <source src={sourceVideo} type="video/webm" />
+          Your browser does not support the NASA visualization video. <Link to="/studio">Open the Studio</Link>.
+        </video>
+        <figcaption><span>NASA SVS #3912 · MUTED PREVIEW</span><span>01:06</span></figcaption>
+      </figure>
     </section>
-    <section className="next-step page-container"><div><span className="eyebrow">THE EARTHSONIC EXPERIENCE</span><h2>Begin with curiosity.</h2><p>Explore NASA #3912 and learn how rendered-image features shape its sound.</p></div><Link className="button button-outline" to="/explore">Start exploring <ArrowRight size={17} /></Link></section>
-  </>
+
+    <section className="home-source" aria-labelledby="source-title">
+      <PageContainer className="home-source-inner">
+        <div><span className="home-section-index">04 <i /> THE NASA SOURCE</span><h2 id="source-title">One visualization.<br /><em>A world of motion.</em></h2></div>
+        <div className="home-source-details">
+          <span className="home-source-number">NASA SVS · 3912</span>
+          <h3>Global Sea Surface Currents and Temperature</h3>
+          <dl><div><dt>Visualization period</dt><dd>March 25, 2007 – March 3, 2008</dd></div><div><dt>Model attribution</dt><dd>ECCO2 · joint MIT/JPL project</dd></div><div><dt>NASA credit</dt><dd>NASA / Goddard Space Flight Center Scientific Visualization Studio</dd></div></dl>
+          <a className="home-source-link" href="https://svs.gsfc.nasa.gov/3912/" target="_blank" rel="noreferrer">View the NASA source record <ArrowRight size={16} aria-hidden="true" /></a>
+        </div>
+      </PageContainer>
+    </section>
+  </div>
 }

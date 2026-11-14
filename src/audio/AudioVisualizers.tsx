@@ -7,10 +7,18 @@ export function AudioVisualizers() {
   const { isPlaying, getEngine } = useSonification()
 
   useEffect(() => {
-    if (!isPlaying) return
-    const engine = getEngine()
     const spectrumCanvas = spectrumRef.current
     const waveformCanvas = waveformRef.current
+    if (!isPlaying) {
+      for (const canvas of [spectrumCanvas, waveformCanvas]) {
+        const context = canvas?.getContext('2d')
+        if (!canvas || !context) continue
+        context.setTransform(1, 0, 0, 1, 0, 0)
+        context.clearRect(0, 0, canvas.width, canvas.height)
+      }
+      return
+    }
+    const engine = getEngine()
     if (!engine || !spectrumCanvas || !waveformCanvas) return
     const spectrumContext = spectrumCanvas.getContext('2d')
     const waveformContext = waveformCanvas.getContext('2d')
@@ -34,7 +42,9 @@ export function AudioVisualizers() {
     const spectrum = new Uint8Array(engine.getFrequencyBinCount())
     const waveform = new Uint8Array(engine.getWaveformLength())
     let animation = 0
+    let active = true
     const draw = () => {
+      if (!active) return
       const s = spectrumSize
       const w = waveformSize
       engine.readFrequencyData(spectrum)
@@ -61,11 +71,13 @@ export function AudioVisualizers() {
       animation = window.requestAnimationFrame(draw)
     }
     draw()
-    return () => { window.cancelAnimationFrame(animation); resizeObserver.disconnect() }
+    return () => { active = false; window.cancelAnimationFrame(animation); resizeObserver.disconnect() }
   }, [getEngine, isPlaying])
 
-  return <div className="audio-visualizers">
-    <div className="visualizer-block"><div><span className="eyebrow">LIVE FREQUENCY SPECTRUM</span><span className="visualizer-state">{isPlaying ? 'ANALYSER LIVE' : 'WAITING FOR AUDIO'}</span></div><canvas ref={spectrumRef} aria-label="Live audio frequency spectrum" role="img" /></div>
-    <div className="visualizer-block"><div><span className="eyebrow">LIVE WAVEFORM</span><span className="visualizer-state">WEB AUDIO ANALYSER</span></div><canvas ref={waveformRef} aria-label="Live generated audio waveform" role="img" /></div>
+  return <div className="audio-visualizers" aria-label="Audio output visualization">
+    {!isPlaying ? <p className="visualizer-empty">Waveform and spectrum appear here while sonification is playing.</p> : <>
+      <div className="visualizer-block"><div><span className="eyebrow">FREQUENCY SPECTRUM</span><span className="visualizer-state">LIVE ANALYSER</span></div><canvas ref={spectrumRef} aria-label="Live audio frequency spectrum from the Web Audio analyser" role="img" /></div>
+      <div className="visualizer-block"><div><span className="eyebrow">WAVEFORM</span><span className="visualizer-state">LIVE ANALYSER</span></div><canvas ref={waveformRef} aria-label="Live generated audio waveform from the Web Audio analyser" role="img" /></div>
+    </>}
   </div>
 }

@@ -1,64 +1,123 @@
-import { ArrowRight, ArrowUpRight, AudioLines, Check, Eye, Headphones, Keyboard, Microscope, Waves } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUpRight, AudioLines, Eye, Waves } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PageContainer } from '../components/layout/PageContainer'
-import { SectionHeader } from '../components/ui/SectionHeader'
+import { getDataset } from '../data/datasets'
+import './AboutPage.css'
 
-const pipeline = [
-  ['01', 'NASA source', 'Use a documented NASA visualization and retain its source record.'],
-  ['02', 'Frame capture', 'Read a small sample from the frame currently rendered in the browser.'],
-  ['03', 'Rendered-image analysis', 'Calculate image brightness, rendered-pixel color balance, spatial pixel variation, and smoothed image change per source-video second.'],
-  ['04', 'Normalization', 'Keep selected image features in bounded ranges for stable, repeatable artistic mappings.'],
-  ['05', 'Artistic sound mapping', 'Map stated visual features to pitch, amplitude-modulation rate, sound level, and stereo position.'],
-  ['06', 'Audio synthesis', 'Generate sound locally with the Web Audio API after a user action.'],
-  ['07', 'Listen and compare', 'Keep the source context and mapping limits available while listening.'],
+const dataset = getDataset('ocean-currents')
+
+const workflow = [
+  {
+    number: '01',
+    label: 'SOURCE',
+    title: 'A modeled ocean, rendered by NASA.',
+    description: 'NASA SVS #3912 presents ECCO2-modeled global sea surface currents and temperature as a historical visualization.',
+  },
+  {
+    number: '02',
+    label: 'IMAGE ANALYSIS',
+    title: 'A frame becomes a set of visual features.',
+    description: 'EarthSonic samples rendered video frames and calculates selected properties such as image brightness, color balance, left–right balance, and change between samples.',
+  },
+  {
+    number: '03',
+    label: 'SOUND SYNTHESIS',
+    title: 'Those features shape generated sound.',
+    description: 'Selected features are mapped to pitch, sound level, stereo position, and modulation in audio generated locally in the browser after a user starts playback.',
+  },
 ]
-const technologies = ['React', 'TypeScript', 'Vite', 'Canvas API', 'Web Audio API', 'Three.js', 'NASA SVS', 'Tailwind CSS']
+
+const interpretations = [
+  ['Rendered pixels', 'EarthSonic analyzes the video as rendered on screen. It does not directly process the original numerical ECCO2 fields.'],
+  ['Color is not a thermometer', 'The NASA colorbar describes the visualization scale. Sampled RGB values are rendered display properties, not calibrated pointwise temperature readings.'],
+  ['Image change is not current speed', 'The change rate describes differences between sampled frames, normalized by source-video time. It is not measured ocean-current velocity.'],
+  ['Sound is an interpretation', 'The browser-generated audio is an artistic sonification of selected visual features, not a recording of the ocean.'],
+]
 
 export function AboutPage() {
   return <PageContainer className="about-page">
-    <header className="about-hero">
-      <span className="eyebrow">METHODOLOGY · OPEN SCIENCE</span>
-      <h1>Another way to experience <span>the ocean.</span></h1>
-      <p>EarthSonic turns visual patterns in NASA SVS #3912—global sea surface currents and temperature—into an explained, interactive sound interpretation.</p>
-      <span className="about-tagline"><AudioLines size={15} /> Listen to Our Planet.</span>
-    </header>
-
-    <section className="about-mission" aria-label="The problem and approach">
-      <article><span className="eyebrow">THE PROBLEM</span><h2>Science is often presented through sight alone.</h2><p>Maps and animations can reveal complex patterns, but a visual-only experience can create barriers for people who are blind or have low vision, and can limit how anyone notices change.</p></article>
-      <article><span className="eyebrow">THE APPROACH</span><h2>Give ocean patterns another channel.</h2><p>EarthSonic pairs this NASA ocean visualization with generated audio, clear controls, and source-grounded explanations so people can explore with both sight and sound.</p></article>
-    </section>
-
-    <section className="about-pipeline" aria-labelledby="about-pipeline-heading">
-      <SectionHeader eyebrow="THE TECHNICAL PIPELINE">From a NASA frame to a sound.</SectionHeader>
-      <ol className="about-pipeline-list" aria-label="NASA data-to-audio process">{pipeline.map(([number, title, description]) => <li key={number}><span className="about-pipeline-number">{number}</span><div><h3>{title}</h3><p>{description}</p></div>{number !== '07' && <span className="about-pipeline-link" aria-hidden="true"><ArrowRight size={15} /></span>}</li>)}</ol>
-      <p className="about-pipeline-note">NASA’s #3912 page notes that it does not store the underlying dataset. The current demo analyzes rendered pixels; ECCO2 numerical fields are not integrated.</p>
-    </section>
-
-    <section className="about-technology" aria-labelledby="about-technology-heading">
-      <div><span className="eyebrow">BUILT FOR THE BROWSER</span><h2 id="about-technology-heading">A modular scientific listening experience.</h2><p>The app separates NASA source metadata, frame analysis, sonification mappings, and audio synthesis so each step can be inspected and extended.</p></div>
-      <ul className="technology-list">{technologies.map((technology) => <li key={technology}>{technology}</li>)}</ul>
-    </section>
-
-    <section className="about-integrity" aria-labelledby="about-integrity-heading">
-      <div className="about-integrity-heading"><span className="eyebrow">SCIENTIFIC INTEGRITY</span><h2 id="about-integrity-heading">A sonification is an interpretation.</h2><p>EarthSonic does not claim to record ocean currents. It turns supported information into sound while keeping its source and limits visible.</p></div>
-      <div className="integrity-grid">
-        <article><span className="eyebrow">01 · ORIGINAL MEASUREMENTS</span><h3>Scientific values</h3><p>Measurements and model fields belong to their NASA source and are only shown as values when they are actually available to the experience.</p></article>
-        <article><span className="eyebrow">02 · RENDERED VISUALIZATION</span><h3>Pixels in a frame</h3><p>Color and movement are visual encodings. The demo samples rendered-image brightness, color balance, spatial pixel variation, and image change between samples. Its sound mapping uses a smoothed change rate based on source-video timestamps, not a physical motion measurement.</p></article>
-        <article><span className="eyebrow">03 · DERIVED ANALYSIS</span><h3>Perceptual features</h3><p>Frame features are normalized for the sound engine. They are not calibrated temperature or current speed.</p></article>
-        <article><span className="eyebrow">04 · GENERATED AUDIO</span><h3>An artistic mapping</h3><p>Pitch, amplitude-modulation rate, sound level, and stereo position artistically map rendered-image features to audio. Timbre presets change waveform and filtering, not the mapping.</p></article>
+    <section className="about-story-hero" aria-labelledby="about-story-title">
+      <div className="about-story-copy">
+        <span className="about-story-kicker"><AudioLines size={14} aria-hidden="true" /> EARTHSONIC · NASA SVS #3912</span>
+        <h1 id="about-story-title">Science can be experienced, <em>not only observed.</em></h1>
+        <p>EarthSonic transforms visual patterns from NASA&apos;s ocean visualization into an experimental listening experience.</p>
+        <a className="about-story-scroll" href="#about-idea">Follow the method <ArrowDown size={15} aria-hidden="true" /></a>
       </div>
-      <a className="about-source-link" href="https://svs.gsfc.nasa.gov/3912/" target="_blank" rel="noreferrer">NASA SVS #3912: Global Sea Surface Currents and Temperature <ArrowUpRight size={14} /></a>
+      <figure className="about-story-image">
+        <img src={dataset.previewImage} alt="NASA SVS #3912 rendered visualization of global sea surface currents, colored by modeled sea surface temperature." fetchPriority="high" />
+        <figcaption><span>GLOBAL SEA SURFACE CURRENTS & TEMPERATURE</span><span>NASA SVS #3912</span></figcaption>
+      </figure>
+      <div className="about-hero-baseline" aria-hidden="true"><span>MODEL VISUALIZATION</span><span>ECCO2 · 2007—2008</span><span>AN EXPERIMENT IN LISTENING</span></div>
     </section>
 
-    <section className="about-accessibility" aria-labelledby="about-accessibility-heading">
-      <div><span className="eyebrow">ACCESSIBLE BY DESIGN</span><h2 id="about-accessibility-heading">More than one way to explore.</h2><p>Open Accessibility in the global navigation to adjust the experience. Keyboard and assistive technology support remains available throughout the site.</p><Link className="button button-outline" to="/explore">Open the Science Guide <ArrowRight size={15} /></Link></div>
-      <ul>{[
-        [Headphones, 'Audio-first controls and persistent playback'],
-        [Keyboard, 'Keyboard navigation, skip link, and playback shortcuts'],
-        [Eye, 'Text alternatives and Close Your Eyes Mode'],
-        [Waves, 'High contrast, text scaling, and reduced motion settings'],
-        [Microscope, 'Source links and plain-language science context'],
-      ].map(([Icon, label]) => { const FeatureIcon = Icon as typeof Check; return <li key={String(label)}><FeatureIcon size={16} /><span>{String(label)}</span><Check size={14} className="about-feature-check" /></li> })}</ul>
+    <section className="about-idea" id="about-idea" aria-labelledby="about-idea-title">
+      <div className="about-section-index"><span>01</span><i /> THE IDEA</div>
+      <div className="about-idea-layout">
+        <h2 id="about-idea-title">Why listen to the ocean?</h2>
+        <div className="about-idea-body">
+          <p className="about-idea-lede">A scientific visualization is usually something we look at. Sound offers another way to notice its changing patterns.</p>
+          <p>EarthSonic explores that possibility by translating selected features of a rendered ocean image into sound. It is an educational and artistic experiment: a new way to pay attention to a visualization, not a replacement for the science behind it.</p>
+          <div className="about-idea-note"><Eye size={17} aria-hidden="true" /><span>One NASA visualization, explored through sight and sound.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section className="about-method" aria-labelledby="about-method-title">
+      <div className="about-section-index"><span>02</span><i /> FROM VISUALIZATION TO SOUND</div>
+      <div className="about-method-heading"><h2 id="about-method-title">From pixels to sound.</h2><p>Three connected stages explain what the experience actually does.</p></div>
+      <ol className="about-workflow">
+        {workflow.map((stage) => <li key={stage.number}>
+          <div className="about-workflow-top"><span>{stage.number}</span><i aria-hidden="true" /></div>
+          <span className="about-workflow-label">{stage.label}</span>
+          <h3>{stage.title}</h3>
+          <p>{stage.description}</p>
+        </li>)}
+      </ol>
+      <p className="about-method-footnote"><Waves size={15} aria-hidden="true" /> The image features come from rendered frames; the sound is generated by EarthSonic in the browser.</p>
+    </section>
+
+    <section className="about-science" aria-labelledby="about-science-title">
+      <div className="about-science-copy">
+        <div className="about-section-index"><span>03</span><i /> THE SCIENCE BEHIND THE VISUALIZATION</div>
+        <h2 id="about-science-title">One visualization.<br /><em>A global ocean.</em></h2>
+        <p>{dataset.description} This is a historical model visualization, not live ocean observation.</p>
+        <dl className="about-source-facts">
+          <div><dt>NASA VISUALIZATION</dt><dd>{dataset.title}</dd></div>
+          <div><dt>MODEL</dt><dd>ECCO2</dd></div>
+          <div><dt>VISUALIZATION PERIOD</dt><dd>March 25, 2007 – March 3, 2008</dd></div>
+        </dl>
+        <a className="about-inline-link" href={dataset.sourceUrl} target="_blank" rel="noreferrer">Open the NASA source record <ArrowUpRight size={15} aria-hidden="true" /></a>
+      </div>
+      <figure className="about-color-figure">
+        <div className="about-color-image"><img src={dataset.colorLegend.image} alt="NASA sea surface temperature color legend, labeled from approximately 0 degrees Celsius in blue to 32 degrees in red." loading="lazy" /></div>
+        <figcaption><span>NASA SOURCE COLOR LEGEND</span><span>SEA SURFACE TEMPERATURE</span></figcaption>
+        <p>The legend labels the visualization&apos;s temperature color scale. EarthSonic reads rendered color balance; it does not convert sampled pixels into local temperature values.</p>
+      </figure>
+    </section>
+
+    <section className="about-transparency" aria-labelledby="about-transparency-title">
+      <div className="about-section-index"><span>04</span><i /> SCIENTIFIC TRANSPARENCY</div>
+      <div className="about-transparency-heading"><h2 id="about-transparency-title">What the sound represents <em>— and what it doesn&apos;t.</em></h2><p>Knowing where the interpretation begins helps keep the science in view.</p></div>
+      <ul className="about-interpretations">
+        {interpretations.map(([title, description], index) => <li key={title}><span className="about-interpretation-number">0{index + 1}</span><h3>{title}</h3><p>{description}</p></li>)}
+      </ul>
+    </section>
+
+    <section className="about-acknowledgements" aria-labelledby="about-acknowledgements-title">
+      <div className="about-section-index"><span>05</span><i /> SOURCE & ACKNOWLEDGEMENTS</div>
+      <div className="about-ack-layout">
+        <div className="about-ack-copy">
+          <h2 id="about-acknowledgements-title">Built from a documented source.</h2>
+          <p>EarthSonic uses the packaged NASA SVS #3912 visualization and its associated source materials.</p>
+          <p className="about-ack-credit">{dataset.attribution}</p>
+          <a className="about-inline-link" href={dataset.sourceUrl} target="_blank" rel="noreferrer">NASA SVS #3912 · {dataset.title} <ArrowUpRight size={15} aria-hidden="true" /></a>
+        </div>
+        <div className="about-final-cta">
+          <span className="about-cta-mark"><AudioLines size={19} aria-hidden="true" /></span>
+          <p>Ready to hear the visualization?</p>
+          <Link className="button button-primary" to="/studio">Enter the Studio <ArrowRight size={16} aria-hidden="true" /></Link>
+        </div>
+      </div>
     </section>
   </PageContainer>
 }

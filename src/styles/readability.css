@@ -1,7 +1,8 @@
 /* Keep the compact scientific layout while preventing body copy and controls
    from dropping below a comfortable reading size. */
 body {
-  font-size: 16px;
+  font-size: var(--type-body);
+  line-height: var(--line-body);
 }
 
 p,
@@ -15,7 +16,7 @@ textarea,
 output,
 small,
 summary {
-  font-size: max(14px, min(16px, 1em)) !important;
+  font-size: max(var(--type-secondary), min(var(--type-body), 1em)) !important;
 }
 
 .eyebrow,
@@ -31,7 +32,7 @@ summary {
 .globe-credit,
 .visual-coordinate,
 .explore-coordinates {
-  font-size: 12px !important;
+  font-size: var(--type-metadata) !important;
 }
 
 .experience-card p,
