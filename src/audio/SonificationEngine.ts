@@ -1,4 +1,4 @@
-import type { SonificationControls, SoundPresetId } from './types'
+import type { SonificationControls, SoundPresetId, SonificationOutput } from './types'
 
 /** Small local Web Audio synthesizer. Mapping inputs describe the rendered video, not physical measurements. */
 export class SonificationEngine {
@@ -21,6 +21,11 @@ export class SonificationEngine {
   private modulationIntensity = 0.7
   private smoothingSeconds = 0.12
   private profileModulationDepth = 0.08
+  private filterCutoffHz = 1400
+  private overtoneGainTarget = 0.1
+  private mixGainTarget = 0.55
+  private modulationDepthGainTarget = 0.08 * 0.7
+  private currentMapping: SonificationOutput['mapping'] = null
   private closed = false
   private stateListeners = new Set<(state: AudioContextState) => void>()
   private readonly handleContextStateChange = () => {
@@ -103,18 +108,42 @@ export class SonificationEngine {
     if (this.context.state !== 'closed') await this.context.close()
   }
 
+  /** Returns the latest scheduled audio targets; AudioParam smoothing transitions toward these values. */
+  getOutputState(): SonificationOutput {
+    return {
+      mapping: this.currentMapping ? { ...this.currentMapping } : null,
+      preset: this.preset,
+      filterCutoffHz: this.filterCutoffHz,
+      overtoneGain: this.overtoneGainTarget,
+      mixGain: this.mixGainTarget,
+      modulationDepthGain: this.modulationDepthGainTarget,
+      modulationIntensity: this.modulationIntensity,
+      smoothingSeconds: this.smoothingSeconds,
+      masterVolume: this.volume,
+      muted: this.muted,
+    }
+  }
+
   setMapping(controls: SonificationControls) {
+    const amplitude = Math.max(0, Math.min(1, controls.amplitude))
+    this.currentMapping = {
+      toneHz: controls.toneHz,
+      modulationRateHz: controls.modulationRateHz,
+      amplitude,
+      pan: controls.pan,
+    }
     const now = this.context.currentTime
     this.tone.frequency.setTargetAtTime(controls.toneHz, now, this.smoothingSeconds)
     this.overtone.frequency.setTargetAtTime(controls.toneHz * 2, now, this.smoothingSeconds)
     this.pulse.frequency.setTargetAtTime(controls.modulationRateHz, now, this.smoothingSeconds)
-    this.mappingGain.gain.setTargetAtTime(Math.max(0, Math.min(1, controls.amplitude)), now, this.smoothingSeconds)
+    this.mappingGain.gain.setTargetAtTime(amplitude, now, this.smoothingSeconds)
     this.panner.pan.setTargetAtTime(controls.pan, now, this.smoothingSeconds)
   }
 
   setModulationIntensity(value: number) {
     this.modulationIntensity = Math.max(0, Math.min(1, value))
-    this.pulseDepth.gain.setTargetAtTime(this.profileModulationDepth * this.modulationIntensity, this.context.currentTime, this.smoothingSeconds)
+    this.modulationDepthGainTarget = this.profileModulationDepth * this.modulationIntensity
+    this.pulseDepth.gain.setTargetAtTime(this.modulationDepthGainTarget, this.context.currentTime, this.smoothingSeconds)
   }
 
   setSmoothing(value: number) {
@@ -142,6 +171,10 @@ export class SonificationEngine {
     }[preset]
     const transition = 0.16
     this.profileModulationDepth = profile.modulationDepth
+    this.overtoneGainTarget = profile.overtone
+    this.filterCutoffHz = profile.filter
+    this.mixGainTarget = profile.mix
+    this.modulationDepthGainTarget = this.profileModulationDepth * this.modulationIntensity
     this.overtoneGain.gain.setTargetAtTime(profile.overtone, now, transition)
     this.toneFilter.frequency.setTargetAtTime(profile.filter, now, transition)
     this.mix.gain.setTargetAtTime(profile.mix, now, transition)

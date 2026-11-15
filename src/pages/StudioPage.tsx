@@ -3,17 +3,15 @@ import { ArrowUpRight, AudioLines, Database, Info, Maximize2, Minimize2, Pause, 
 import { Link, useSearchParams } from 'react-router-dom'
 import { getDataset } from '../data/datasets'
 import { getOceanRegion } from '../data/oceanRegions'
-import type { FrameMetrics } from '../services/frameAnalysis'
-import { IMAGE_CHANGE_RATE_REFERENCE_PER_VIDEO_SECOND, mapFrameToSound } from '../services/sonificationMapping'
 import { PageContainer } from '../components/layout/PageContainer'
 import { AudioVisualizers } from '../audio/AudioVisualizers'
-import { soundPresets } from '../audio/types'
+import { DEFAULT_SONIFICATION_MAPPING_SETTINGS, soundPresets } from '../audio/types'
 import { useSonification } from '../audio/SonificationContext'
+import { LiveDataSoundMonitor } from '../components/studio/LiveDataSoundMonitor'
 import './StudioPage.css'
 
 const percent = (value: number) => `${Math.round(value * 100)}%`
 const fmtTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
-const defaultMapping = { pitchSpan: 350, pulseSensitivity: 1, intensity: 100, stereoWidth: 100, stereoBalance: 0 }
 const DEFAULT_VOLUME = 0.42
 const DEFAULT_MODULATION_INTENSITY = 0.7
 const DEFAULT_SMOOTHING_SECONDS = 0.12
@@ -36,21 +34,10 @@ export function StudioPage() {
   const [fullscreenError, setFullscreenError] = useState('')
   const [playbackRate, setPlaybackRate] = useState(1)
   const [timelineDraftTime, setTimelineDraftTime] = useState<number | null>(null)
-  const [mappingSettings, setMappingSettings] = useState(defaultMapping)
   const { isPlaying, audioStatus, audioError: sharedAudioError, muted, volume, modulationIntensity, smoothing, preset, isLooping, metrics, currentTime: playbackTime, duration: videoDuration,
     mediaStatus, mediaError, start, pause, restart, loadDataset, seek, setPlaybackRate: setSharedPlaybackRate,
-    getVideoElement, setMapping, setVolume, setMuted, toggleMute, setModulationIntensity, setSmoothing, setPreset, setLooping } = useSonification()
+    getVideoElement, mappingSettings, sonificationOutput, updateMappingSettings, setVolume, setMuted, toggleMute, setModulationIntensity, setSmoothing, setPreset, setLooping } = useSonification()
   const activeProfile = soundPresets.find((item) => item.id === preset) ?? soundPresets[0]
-  const toSoundMapping = (frame: FrameMetrics) => {
-    const base = mapFrameToSound(frame)
-    return {
-      ...base,
-      toneHz: 170 + frame.warmCoolBalance * mappingSettings.pitchSpan,
-      modulationRateHz: Math.max(0.2, base.modulationRateHz * mappingSettings.pulseSensitivity),
-      amplitude: Math.min(1, base.amplitude * mappingSettings.intensity / 100),
-      pan: Math.max(-1, Math.min(1, base.pan * mappingSettings.stereoWidth / 100 + mappingSettings.stereoBalance / 100 * 0.75)),
-    }
-  }
   useEffect(() => { loadDataset(dataset, false, true) }, [dataset.id])
 
   useEffect(() => {
@@ -117,10 +104,6 @@ export function StudioPage() {
   }, [playbackTime])
 
   useEffect(() => {
-    if (isPlaying && metrics) setMapping(toSoundMapping(metrics))
-  }, [isPlaying, metrics, mappingSettings.pitchSpan, mappingSettings.pulseSensitivity, mappingSettings.intensity, mappingSettings.stereoWidth, mappingSettings.stereoBalance])
-
-  useEffect(() => {
     if (audioStatus === 'running') setAudioError('')
   }, [audioStatus])
 
@@ -132,7 +115,6 @@ export function StudioPage() {
     }
     if (!metrics) return
     setAudioError('')
-    setMapping(toSoundMapping(metrics))
     try {
       await start(dataset.title)
     } catch {
@@ -178,7 +160,7 @@ export function StudioPage() {
     setMuted(false)
     setModulationIntensity(DEFAULT_MODULATION_INTENSITY)
     setSmoothing(DEFAULT_SMOOTHING_SECONDS)
-    setMappingSettings(defaultMapping)
+    updateMappingSettings(DEFAULT_SONIFICATION_MAPPING_SETTINGS)
   }
   const toggleFullscreen = async () => {
     const container = mediaWrapRef.current
@@ -295,24 +277,11 @@ export function StudioPage() {
           {(sharedAudioError || audioError) && <p className="audio-error" role="status">{sharedAudioError || audioError}</p>}
           <AudioVisualizers />
         </section>
-        <section className="studio-analysis-section" aria-labelledby="studio-analysis-heading">
-          <div className="studio-section-heading"><div><span className="eyebrow">LIVE IMAGE ANALYSIS</span><h2 id="studio-analysis-heading">What am I hearing?</h2></div><span className={`analysis-live ${metrics ? 'is-active' : mediaStatus === 'error' ? 'is-error' : ''}`}><i />{metrics ? 'FRAME SAMPLED' : mediaStatus === 'error' ? 'UNAVAILABLE' : 'WAITING'}</span></div>
-          {mediaError && mediaStatus === 'error' && <div className="analysis-error" role="status">{mediaError}</div>}
-          <p className="studio-analysis-note">These values are measured from rendered pixels sampled at 96 × 48. They are not direct ECCO2 measurements, local temperatures, or current velocities.</p>
-          {!metrics && <p className="studio-metrics-empty" role="status">{mediaStatus === 'error' ? 'Live analysis is unavailable because the source video could not be read.' : 'Waiting for the first readable NASA video frame. Metric values and meters will appear when a frame is sampled.'}</p>}
-          <div className="studio-metric-grid" aria-label="Four primary sonification inputs">
-            <Metric number="01" label="Image brightness" mapping="Sound level" explanation="Mean rendered-pixel luminance, normalized 0–100%. Higher brightness raises the mapped sound level; master volume remains a separate control." value={metrics ? percent(metrics.brightness) : '—'} progress={metrics?.brightness} />
-            <Metric number="02" label="Red–blue visual balance" mapping="Artistic pitch" explanation="A normalized comparison of average rendered red and blue channels. A higher value maps to a higher tone; it is not a calibrated temperature reading." value={metrics ? percent(metrics.warmCoolBalance) : '—'} progress={metrics?.warmCoolBalance} />
-            <Metric number="03" label="Left–right image balance" mapping="Stereo position" explanation="Compares rendered brightness on the left and right halves. Lower values pan left and higher values pan right; this screen-space cue is artistic." value={metrics ? percent(metrics.leftRightBalance) : '—'} progress={metrics?.leftRightBalance} />
-            <Metric number="04" label="Smoothed image change rate" mapping="Modulation rate" explanation="Normalized RGB difference divided by elapsed source-video time, then smoothed. Higher values make the pulse faster, not deeper; this is not current speed." value={metrics?.imageChangeRatePerVideoSecond == null ? '—' : `${metrics.imageChangeRatePerVideoSecond.toFixed(3)} / video second`} progress={metrics?.imageChangeRatePerVideoSecond == null ? undefined : Math.min(1, metrics.imageChangeRatePerVideoSecond / IMAGE_CHANGE_RATE_REFERENCE_PER_VIDEO_SECOND)} />
-          </div>
-          {metrics && <div className="studio-analysis-secondary"><span>SPATIAL PIXEL VARIATION · {percent(metrics.spatialDetail)}</span><p>Mean adjacent-pixel luminance variation in this rendered frame. It is shown for context and does not currently control the sound.</p></div>}
-          <p className="studio-rate-note">Seeking, looping and backward time movement establish a fresh image-change baseline. Browser frame-sampling cadence can affect the estimate. Analysis comes from the shared playback video; this visible muted view is aligned at sparse checkpoints, so a temporary frame mismatch is possible.</p>
-          {metrics && <div className="studio-sample-meta"><span>Sample #{metrics.sampleIndex}</span><span>{metrics.sourceSize.width} × {metrics.sourceSize.height}px</span>{metrics.sampleIntervalMilliseconds !== null && <span>Wall interval {Math.round(metrics.sampleIntervalMilliseconds)} ms</span>}{metrics.sampleIntervalVideoSeconds !== null && <span>Video interval {metrics.sampleIntervalVideoSeconds.toFixed(3)}s</span>}</div>}
-        </section>
         </div>
       </div>
     </section>
+
+    <LiveDataSoundMonitor metrics={metrics} output={sonificationOutput} mediaStatus={mediaStatus} audioStatus={audioStatus} isPlaying={isPlaying} mediaError={mediaError} />
 
     <section className="studio-science-section" aria-labelledby="studio-science-heading">
       <div className="studio-section-heading studio-science-heading"><div><span className="eyebrow">SCIENCE & ADVANCED DETAILS</span><h2 id="studio-science-heading">How image becomes sound</h2></div><p>EarthSonic listens to features of the NASA visualization as rendered on screen—not to the underlying ECCO2 fields.</p></div>
@@ -345,24 +314,19 @@ export function StudioPage() {
         <details className="studio-detail studio-mapping-lab">
           <summary><span><span className="eyebrow">OPTIONAL LISTENING CONTROLS</span><b>Adjust the sound mapping</b></span><span className="detail-toggle">Open mapping lab</span></summary>
           <div className="studio-detail-content">
-            <div className="mapping-lab-heading"><p>Adjust how strongly the selected image features influence the sound. This changes the listening scale, not the source visualization.</p><button type="button" onClick={() => setMappingSettings(defaultMapping)} aria-label="Restore default sound mapping"><RotateCcw size={14} />Reset</button></div>
+            <div className="mapping-lab-heading"><p>Adjust how strongly the selected image features influence the sound. This changes the listening scale, not the source visualization.</p><button type="button" onClick={() => updateMappingSettings(DEFAULT_SONIFICATION_MAPPING_SETTINGS)} aria-label="Restore default sound mapping"><RotateCcw size={14} />Reset</button></div>
             <div className="mapping-sliders-grid">
-              <MappingSlider label="Artistic pitch range" description="Rendered red–blue balance → tone frequency" min={100} max={700} step={10} value={mappingSettings.pitchSpan} suffix=" Hz span" onChange={(value) => setMappingSettings((current) => ({ ...current, pitchSpan: value }))} />
-              <MappingSlider label="Modulation-rate scale" description="Smoothed image change per source-video second → modulation rate" min={50} max={200} step={10} value={mappingSettings.pulseSensitivity * 100} suffix="%" onChange={(value) => setMappingSettings((current) => ({ ...current, pulseSensitivity: value / 100 }))} />
-              <MappingSlider label="Sound intensity" description="Rendered image brightness → artistic sound level" min={50} max={150} step={10} value={mappingSettings.intensity} suffix="%" onChange={(value) => setMappingSettings((current) => ({ ...current, intensity: value }))} />
-              <MappingSlider label="Stereo width" description="Left–right image brightness balance → stereo position" min={0} max={100} step={5} value={mappingSettings.stereoWidth} suffix="%" onChange={(value) => setMappingSettings((current) => ({ ...current, stereoWidth: value }))} />
-              <MappingSlider label="Stereo balance offset" description="Shift the frame-driven stereo position left or right" min={-100} max={100} step={5} value={mappingSettings.stereoBalance} suffix="%" onChange={(value) => setMappingSettings((current) => ({ ...current, stereoBalance: value }))} />
+              <MappingSlider label="Artistic pitch range" description="Rendered red–blue balance → tone frequency" min={100} max={700} step={10} value={mappingSettings.pitchSpan} suffix=" Hz span" onChange={(value) => updateMappingSettings({ pitchSpan: value })} />
+              <MappingSlider label="Modulation-rate scale" description="Smoothed image change per source-video second → modulation rate" min={50} max={200} step={10} value={mappingSettings.pulseSensitivity * 100} suffix="%" onChange={(value) => updateMappingSettings({ pulseSensitivity: value / 100 })} />
+              <MappingSlider label="Sound intensity" description="Rendered image brightness → artistic sound level" min={50} max={150} step={10} value={mappingSettings.intensity} suffix="%" onChange={(value) => updateMappingSettings({ intensity: value })} />
+              <MappingSlider label="Stereo width" description="Left–right image brightness balance → stereo position" min={0} max={100} step={5} value={mappingSettings.stereoWidth} suffix="%" onChange={(value) => updateMappingSettings({ stereoWidth: value })} />
+              <MappingSlider label="Stereo balance offset" description="Shift the frame-driven stereo position left or right" min={-100} max={100} step={5} value={mappingSettings.stereoBalance} suffix="%" onChange={(value) => updateMappingSettings({ stereoBalance: value })} />
             </div>
           </div>
         </details>
       </div>
     </section>
   </PageContainer>
-}
-
-function Metric({ number, label, mapping, explanation, value, progress }: { number: string; label: string; mapping: string; explanation: string; value: string; progress?: number }) {
-  const meterValue = progress === undefined ? 0 : Math.round(progress * 100)
-  return <div className="metric-row studio-metric"><div><span className="studio-metric-number">{number}</span><span className="studio-metric-copy"><span>{label}</span><small>→ {mapping}</small><small className="studio-metric-explanation">{explanation}</small></span><b>{value}</b></div><div className="metric-track" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={meterValue} aria-valuetext={value}><i style={{ width: progress === undefined ? '0%' : `${progress * 100}%` }} /></div></div>
 }
 
 function RegionMetric({ label, value }: { label: string; value?: number }) {

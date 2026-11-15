@@ -6,6 +6,35 @@ export type SonificationControls = {
   interpretation: string
 }
 
+export type SonificationMappingSettings = {
+  pitchSpan: number
+  pulseSensitivity: number
+  intensity: number
+  stereoWidth: number
+  stereoBalance: number
+}
+
+export const DEFAULT_SONIFICATION_MAPPING_SETTINGS: SonificationMappingSettings = {
+  pitchSpan: 350,
+  pulseSensitivity: 1,
+  intensity: 100,
+  stereoWidth: 100,
+  stereoBalance: 0,
+}
+
+export type SonificationOutput = {
+  mapping: Pick<SonificationControls, 'toneHz' | 'modulationRateHz' | 'amplitude' | 'pan'> | null
+  preset: SoundPresetId
+  filterCutoffHz: number
+  overtoneGain: number
+  mixGain: number
+  modulationDepthGain: number
+  modulationIntensity: number
+  smoothingSeconds: number
+  masterVolume: number
+  muted: boolean
+}
+
 export type SoundPresetId = 'calm-ocean' | 'deep-ocean' | 'dynamic-currents' | 'experimental'
 
 export type SoundPreset = {

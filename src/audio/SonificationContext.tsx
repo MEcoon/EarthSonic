@@ -3,10 +3,10 @@ import { analyzeRenderedVideoFrame, type FrameMetrics, type PreviousFrame } from
 import { mapFrameToSound } from '../services/sonificationMapping'
 import type { DatasetConfig } from '../data/datasets'
 import { SonificationEngine } from './SonificationEngine'
-import type { SonificationControls, SoundPresetId } from './types'
+import { DEFAULT_SONIFICATION_MAPPING_SETTINGS, type SonificationControls, type SonificationMappingSettings, type SonificationOutput, type SoundPresetId } from './types'
 
-type MediaStatus = 'idle' | 'loading' | 'ready' | 'buffering' | 'error'
-type AudioStatus = 'idle' | 'running' | 'suspended' | 'error'
+export type MediaStatus = 'idle' | 'loading' | 'ready' | 'buffering' | 'error'
+export type AudioStatus = 'idle' | 'running' | 'suspended' | 'error'
 type SonificationContextValue = {
   isPlaying: boolean
   audioStatus: AudioStatus
@@ -22,6 +22,8 @@ type SonificationContextValue = {
   mediaStatus: MediaStatus
   mediaError: string
   metrics: FrameMetrics | null
+  mappingSettings: SonificationMappingSettings
+  sonificationOutput: SonificationOutput | null
   duration: number
   currentTime: number
   isLooping: boolean
@@ -34,6 +36,7 @@ type SonificationContextValue = {
   setLooping: (looping: boolean) => void
   getVideoElement: () => HTMLVideoElement | null
   setMapping: (mapping: SonificationControls) => void
+  updateMappingSettings: (settings: Partial<SonificationMappingSettings>) => void
   setTrackTitle: (title: string) => void
   setVolume: (value: number) => void
   setMuted: (muted: boolean) => void
@@ -70,6 +73,8 @@ export function SonificationProvider({ children }: PropsWithChildren) {
   const [mediaStatus, setMediaStatus] = useState<MediaStatus>('idle')
   const [mediaError, setMediaError] = useState('')
   const [metrics, setMetrics] = useState<FrameMetrics | null>(null)
+  const [mappingSettings, setMappingSettingsState] = useState(DEFAULT_SONIFICATION_MAPPING_SETTINGS)
+  const [sonificationOutput, setSonificationOutput] = useState<SonificationOutput | null>(null)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [isLooping, setIsLooping] = useState(false)
@@ -87,8 +92,21 @@ export function SonificationProvider({ children }: PropsWithChildren) {
       engineRef.current.applyPreset(preset)
       engineRef.current.setModulationIntensity(modulationIntensity)
       engineRef.current.setSmoothing(smoothing)
+      setSonificationOutput(engineRef.current.getOutputState())
     }
     return engineRef.current
+  }
+
+  const applyMapping = (mapping: SonificationControls) => {
+    const engine = engineRef.current
+    if (!engine) return
+    engine.setMapping(mapping)
+    setSonificationOutput(engine.getOutputState())
+  }
+
+  const refreshEngineOutput = () => {
+    const engine = engineRef.current
+    if (engine) setSonificationOutput(engine.getOutputState())
   }
 
   const sampleCurrentFrame = (force = false) => {
@@ -104,7 +122,7 @@ export function SonificationProvider({ children }: PropsWithChildren) {
       previousRef.current = result.previous
       latestMetricsRef.current = result.metrics
       setMetrics(result.metrics)
-      if (isPlaying) engineRef.current?.setMapping(mapFrameToSound(result.metrics))
+      if (engineRef.current) applyMapping(mapFrameToSound(result.metrics, mappingSettings))
       setMediaStatus('ready')
       setMediaError('')
     } catch (error) {
@@ -112,6 +130,7 @@ export function SonificationProvider({ children }: PropsWithChildren) {
         playbackRequestedRef.current = false
         setMediaError(error.message)
         setMediaStatus('error')
+        setSonificationOutput(null)
         video.pause()
         void engineRef.current?.pause()
         setIsPlaying(false)
@@ -144,6 +163,7 @@ export function SonificationProvider({ children }: PropsWithChildren) {
     latestMetricsRef.current = null
     lastSampleAtRef.current = 0
     setMetrics(null)
+    setSonificationOutput(null)
     setDuration(0)
     setCurrentTime(0)
     setMediaError('')
@@ -168,7 +188,7 @@ export function SonificationProvider({ children }: PropsWithChildren) {
     let engine: SonificationEngine
     try {
       engine = ensureEngine()
-      engine.setMapping(mapFrameToSound(latestMetricsRef.current))
+      applyMapping(mapFrameToSound(latestMetricsRef.current, mappingSettings))
     } catch (error) {
       playbackRequestedRef.current = false
       setAudioStatus('error')
@@ -227,13 +247,18 @@ export function SonificationProvider({ children }: PropsWithChildren) {
   }
   const setPlaybackRate = (rate: number) => { if (videoRef.current && Number.isFinite(rate)) videoRef.current.playbackRate = rate }
   const setLooping = (looping: boolean) => { if (videoRef.current) { videoRef.current.loop = looping; setIsLooping(looping) } }
-  const setMapping = (mapping: SonificationControls) => engineRef.current?.setMapping(mapping)
-  const setVolume = (value: number) => { const next = Math.max(0, Math.min(1, value)); setVolumeState(next); engineRef.current?.setVolume(next) }
-  const setMuted = (value: boolean) => { setMutedState(value); engineRef.current?.setMuted(value) }
-  const toggleMute = () => { const next = !muted; setMutedState(next); engineRef.current?.setMuted(next) }
-  const setModulationIntensity = (value: number) => { const next = Math.max(0, Math.min(1, value)); setModulationIntensityState(next); engineRef.current?.setModulationIntensity(next) }
-  const setSmoothing = (seconds: number) => { const next = Math.max(0.02, Math.min(0.5, seconds)); setSmoothingState(next); engineRef.current?.setSmoothing(next) }
-  const setPreset = (value: SoundPresetId) => { setPresetState(value); engineRef.current?.applyPreset(value) }
+  const setMapping = (mapping: SonificationControls) => applyMapping(mapping)
+  const updateMappingSettings = (settings: Partial<SonificationMappingSettings>) => {
+    const next = { ...mappingSettings, ...settings }
+    setMappingSettingsState(next)
+    if (latestMetricsRef.current && engineRef.current) applyMapping(mapFrameToSound(latestMetricsRef.current, next))
+  }
+  const setVolume = (value: number) => { const next = Math.max(0, Math.min(1, value)); setVolumeState(next); engineRef.current?.setVolume(next); refreshEngineOutput() }
+  const setMuted = (value: boolean) => { setMutedState(value); engineRef.current?.setMuted(value); refreshEngineOutput() }
+  const toggleMute = () => { const next = !muted; setMutedState(next); engineRef.current?.setMuted(next); refreshEngineOutput() }
+  const setModulationIntensity = (value: number) => { const next = Math.max(0, Math.min(1, value)); setModulationIntensityState(next); engineRef.current?.setModulationIntensity(next); refreshEngineOutput() }
+  const setSmoothing = (seconds: number) => { const next = Math.max(0.02, Math.min(0.5, seconds)); setSmoothingState(next); engineRef.current?.setSmoothing(next); refreshEngineOutput() }
+  const setPreset = (value: SoundPresetId) => { setPresetState(value); engineRef.current?.applyPreset(value); refreshEngineOutput() }
   const setTrackTitle = (title: string) => { setTrackTitleState(title); setHasTrack(true) }
   const getEngine = useCallback(() => engineRef.current, [])
   const getVideoElement = useCallback(() => videoRef.current, [])
@@ -246,9 +271,9 @@ export function SonificationProvider({ children }: PropsWithChildren) {
   }, [])
 
   return <SonificationContext.Provider value={{
-    isPlaying, audioStatus, audioError, muted, volume, modulationIntensity, smoothing, trackTitle, hasTrack, preset, activeDatasetId, mediaStatus, mediaError, metrics, duration, currentTime, isLooping,
+    isPlaying, audioStatus, audioError, muted, volume, modulationIntensity, smoothing, trackTitle, hasTrack, preset, activeDatasetId, mediaStatus, mediaError, metrics, mappingSettings, sonificationOutput, duration, currentTime, isLooping,
     start, pause, loadDataset, seek, restart, setPlaybackRate, setLooping, getVideoElement,
-    setMapping, setTrackTitle, setVolume, setMuted, toggleMute, setModulationIntensity, setSmoothing, setPreset, getEngine,
+    setMapping, updateMappingSettings, setTrackTitle, setVolume, setMuted, toggleMute, setModulationIntensity, setSmoothing, setPreset, getEngine,
   }}>
     {children}
     <video ref={videoRef} className="hidden-data-video" preload="none" crossOrigin="anonymous" aria-hidden="true" tabIndex={-1} loop={isLooping}
@@ -292,7 +317,7 @@ export function SonificationProvider({ children }: PropsWithChildren) {
           : code === MediaError.MEDIA_ERR_NETWORK
             ? 'The packaged NASA video could not be loaded. Check the local asset path or retry.'
             : 'The packaged NASA video could not be decoded or sampled by this browser.'
-        setMediaError(message); setMediaStatus('error'); setIsPlaying(false); void engineRef.current?.pause()
+        setMediaError(message); setMediaStatus('error'); setIsPlaying(false); setSonificationOutput(null); void engineRef.current?.pause()
       }} />
     <canvas ref={canvasRef} className="analysis-canvas shared-frame-canvas" aria-hidden="true" />
   </SonificationContext.Provider>
