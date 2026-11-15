@@ -6,7 +6,7 @@ export type SonificationControls = {
   interpretation: string
 }
 
-export type SoundPresetId = 'ambient' | 'piano' | 'electronic' | 'minimal'
+export type SoundPresetId = 'calm-ocean' | 'deep-ocean' | 'dynamic-currents' | 'experimental'
 
 export type SoundPreset = {
   id: SoundPresetId
@@ -15,8 +15,8 @@ export type SoundPreset = {
 }
 
 export const soundPresets: SoundPreset[] = [
-  { id: 'ambient', name: 'Ambient', description: 'A soft, filtered tone with a gentle harmonic layer.' },
-  { id: 'piano', name: 'Piano', description: 'A rounded, harmonic piano-style tone; it preserves the same image-feature mappings.' },
-  { id: 'electronic', name: 'Electronic', description: 'A brighter sawtooth tone with the same image-feature mappings.' },
-  { id: 'minimal', name: 'Minimal', description: 'A simple sine tone with no added harmonic layer.' },
+  { id: 'calm-ocean', name: 'Calm Ocean', description: 'A soft, low-pass tone with restrained harmonics and gentle modulation.' },
+  { id: 'deep-ocean', name: 'Deep Ocean', description: 'A darker, rounded tone with a warm harmonic layer and slow modulation.' },
+  { id: 'dynamic-currents', name: 'Dynamic Currents', description: 'A brighter tone with stronger harmonics and more pronounced modulation.' },
+  { id: 'experimental', name: 'Experimental', description: 'A more vivid harmonic profile with a brighter filter and deeper modulation.' },
 ]

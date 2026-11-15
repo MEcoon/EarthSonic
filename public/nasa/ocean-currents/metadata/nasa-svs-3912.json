@@ -27,7 +27,19 @@
     {
       "path": "/nasa/ocean-currents/videos/ecco2_sst_flow.webmhd.webm",
       "source": "https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/ecco2_sst_flow.webmhd.webm",
-      "description": "960 × 540 NASA SVS assembled visualization video"
+      "description": "Packaged WebM; locally measured 1080 × 540, 30 fps, 66.700 seconds, 15,653,144 bytes. NASA currently catalogs this filename at 960 × 540 (14.9 MB). The local file's transformation history and byte-for-byte provenance have not been established.",
+      "catalogDescription": "NASA catalog listing: 960 × 540, 14.9 MB",
+      "measuredLocalProperties": {
+        "container": "matroska,webm",
+        "videoCodec": "vp8",
+        "width": 1080,
+        "height": 540,
+        "averageFrameRate": "30/1",
+        "durationSeconds": 66.7,
+        "sizeBytes": 15653144,
+        "inspectionMethod": "ffprobe"
+      },
+      "provenanceNote": "The listed source URL is the NASA catalog URL for the same filename. No checksum comparison or transformation history is available, so do not describe the local file as verified original or as a confirmed re-encode."
     },
     {
       "path": "/nasa/ocean-currents/images/global_ecco2_temperature_currents.jpg",

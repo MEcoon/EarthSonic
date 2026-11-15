@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, ArrowUpRight, Check, CircleHelp, Sparkles, X } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, ArrowUpRight, Bookmark, Check, CircleHelp, Compass, Dice5, MapPin, RotateCcw, Sparkles, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { EarthGlobe } from '../components/earth/EarthGlobe'
+import { ScienceGuide } from '../components/science/ScienceGuide'
 import { PageContainer } from '../components/layout/PageContainer'
-import { datasets } from '../data/datasets'
+import { datasets, getDataset } from '../data/datasets'
+import { getOceanRegion, oceanRegions } from '../data/oceanRegions'
+import { oceanExpeditions } from '../data/oceanExpeditions'
+import { DISCOVERIES_STORAGE_KEY, readDiscoveries, writeDiscoveries, type DiscoveriesStore } from '../services/discoveriesStorage'
+import { MyDiscoveries } from '../components/discoveries/MyDiscoveries'
 import { useSonification } from '../audio/SonificationContext'
 import './ExplorePage.css'
 
@@ -15,6 +20,23 @@ const readScore = () => { try { return Number(localStorage.getItem(SCORE_KEY) ??
 
 export function ExplorePage() {
   const dataset = datasets[0]
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedRegionId = searchParams.get('region')
+  const requestedRegion = getOceanRegion(requestedRegionId)
+  const selectedRegion = requestedRegion?.availabilityStatus === 'available'
+    ? requestedRegion
+    : oceanRegions.find((region) => region.availabilityStatus === 'available')
+  const [surpriseMessage, setSurpriseMessage] = useState('')
+  const [activeExpeditionId, setActiveExpeditionId] = useState<string | null>(null)
+  const [expeditionStopIndex, setExpeditionStopIndex] = useState(0)
+  const [expeditionComplete, setExpeditionComplete] = useState(false)
+  const [discoveries, setDiscoveries] = useState<DiscoveriesStore>(readDiscoveries)
+  const [storageAvailable, setStorageAvailable] = useState(() => {
+    try { window.localStorage.getItem(DISCOVERIES_STORAGE_KEY); return true } catch { return false }
+  })
+  const [regionSaveMessage, setRegionSaveMessage] = useState('')
+  const [completionMessage, setCompletionMessage] = useState('')
+  const availableRegions = oceanRegions.filter((region) => region.availabilityStatus === 'available' && datasets.some((item) => item.id === region.datasetId))
   const { isPlaying, trackTitle, mediaStatus, mediaError, loadDataset, start, pause, restart } = useSonification()
   const [score, setScore] = useState(readScore)
   const [heard, setHeard] = useState(false)
@@ -25,6 +47,8 @@ export function ExplorePage() {
   const pauseRef = useRef(pause)
   trackTitleRef.current = trackTitle
   pauseRef.current = pause
+  const activeExpedition = oceanExpeditions.find((item) => item.id === activeExpeditionId)
+  const activeExpeditionRegion = activeExpedition ? getOceanRegion(activeExpedition.regionIds[expeditionStopIndex]) : undefined
 
   useEffect(() => {
     loadDataset(dataset, false, true)
@@ -33,6 +57,141 @@ export function ExplorePage() {
       if (trackTitleRef.current === CLUE_TITLE) void pauseRef.current()
     }
   }, [dataset.id])
+
+  useEffect(() => {
+    if (!selectedRegion || requestedRegionId === selectedRegion.id) return
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set('region', selectedRegion.id)
+      return next
+    }, { replace: true })
+  }, [requestedRegionId, selectedRegion, setSearchParams])
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== DISCOVERIES_STORAGE_KEY && event.key !== null) return
+      setDiscoveries(readDiscoveries())
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
+  const commitDiscoveries = (next: DiscoveriesStore) => {
+    setDiscoveries(next)
+    const persisted = writeDiscoveries(next)
+    setStorageAvailable(persisted)
+    return persisted
+  }
+
+  const toggleSavedRegion = (regionId: string) => {
+    const isSaved = discoveries.savedRegions.some((item) => item.regionId === regionId)
+    const next = isSaved
+      ? { ...discoveries, savedRegions: discoveries.savedRegions.filter((item) => item.regionId !== regionId) }
+      : { ...discoveries, savedRegions: [...discoveries.savedRegions, { regionId, savedAt: new Date().toISOString() }] }
+    const persisted = commitDiscoveries(next)
+    setRegionSaveMessage(isSaved
+      ? `Removed ${getOceanRegion(regionId)?.name ?? 'region'} from saved regions.${persisted ? '' : ' This change may not persist after this visit.'}`
+      : `Saved ${getOceanRegion(regionId)?.name ?? 'region'} to My Discoveries.${persisted ? '' : ' This change may not persist after this visit.'}`)
+  }
+
+  const saveRegionNote = (regionId: string, note: string) => {
+    const notes = { ...discoveries.notes }
+    if (note) notes[regionId] = note
+    else delete notes[regionId]
+    return commitDiscoveries({ ...discoveries, notes })
+  }
+
+  const deleteRegionNote = (regionId: string) => {
+    const notes = { ...discoveries.notes }
+    delete notes[regionId]
+    return commitDiscoveries({ ...discoveries, notes })
+  }
+
+  const removeSavedRegion = (regionId: string) => commitDiscoveries({
+    ...discoveries,
+    savedRegions: discoveries.savedRegions.filter((item) => item.regionId !== regionId),
+  })
+
+  const recordExpeditionCompletion = (expeditionId: string, visitedRegionIds: string[]) => {
+    const expedition = oceanExpeditions.find((item) => item.id === expeditionId)
+    if (!expedition || expedition.regionIds.length === 0 || discoveries.completedExpeditions.some((item) => item.expeditionId === expeditionId)) {
+      setCompletionMessage('This expedition is already in My Discoveries.')
+      return
+    }
+    const record = { expeditionId, title: expedition.title, completedAt: new Date().toISOString(), visitedRegionIds: visitedRegionIds.filter((id) => expedition.regionIds.includes(id)) }
+    commitDiscoveries({ ...discoveries, completedExpeditions: [...discoveries.completedExpeditions, record] })
+    setCompletionMessage('Expedition saved to My Discoveries.')
+  }
+
+  const selectRegion = (regionId: string, preserveExpedition = false) => {
+    const region = getOceanRegion(regionId)
+    if (!region || region.availabilityStatus !== 'available' || !datasets.some((item) => item.id === region.datasetId)) return
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set('region', region.id)
+      return next
+    }, { replace: true })
+    if (!preserveExpedition && activeExpedition && activeExpedition.regionIds[expeditionStopIndex] !== region.id) {
+      setActiveExpeditionId(null)
+      setExpeditionComplete(false)
+    }
+    setSurpriseMessage('')
+  }
+
+  const chooseExpedition = (expeditionId: string) => {
+    const expedition = oceanExpeditions.find((item) => item.id === expeditionId)
+    const firstRegion = expedition?.regionIds[0] ? getOceanRegion(expedition.regionIds[0]) : undefined
+    if (!expedition || !firstRegion || firstRegion.availabilityStatus !== 'available') return
+    setActiveExpeditionId(expedition.id)
+    setExpeditionStopIndex(0)
+    setExpeditionComplete(false)
+    setCompletionMessage('')
+    selectRegion(firstRegion.id, true)
+  }
+
+  const moveExpedition = (direction: -1 | 1) => {
+    if (!activeExpedition) return
+    const nextIndex = expeditionStopIndex + direction
+    if (nextIndex < 0) return
+    if (nextIndex >= activeExpedition.regionIds.length) {
+      recordExpeditionCompletion(activeExpedition.id, activeExpedition.regionIds.slice(0, expeditionStopIndex + 1))
+      setExpeditionComplete(true)
+      return
+    }
+    const nextRegion = getOceanRegion(activeExpedition.regionIds[nextIndex])
+    if (!nextRegion) return
+    setExpeditionStopIndex(nextIndex)
+    setExpeditionComplete(false)
+    selectRegion(nextRegion.id, true)
+  }
+
+  const exitExpedition = () => {
+    setActiveExpeditionId(null)
+    setExpeditionComplete(false)
+  }
+
+  const replayExpedition = () => {
+    if (!activeExpedition) return
+    setExpeditionStopIndex(0)
+    setExpeditionComplete(false)
+    setCompletionMessage('')
+    const firstRegion = getOceanRegion(activeExpedition.regionIds[0])
+    if (firstRegion) selectRegion(firstRegion.id, true)
+  }
+
+  const surpriseMe = () => {
+    if (availableRegions.length === 0) {
+      setSurpriseMessage('There are no available regions to explore right now.')
+      return
+    }
+    const alternatives = availableRegions.length > 1
+      ? availableRegions.filter((region) => region.id !== selectedRegion?.id)
+      : availableRegions
+    const next = alternatives[Math.floor(Math.random() * alternatives.length)]
+    if (!next) return
+    selectRegion(next.id)
+    setSurpriseMessage(`Selected ${next.name}. Its marker coordinates are approximate and have not been validated against the NASA video.`)
+  }
 
   const isCluePlaying = isPlaying && trackTitle === CLUE_TITLE
   const playClue = async () => {
@@ -78,9 +237,11 @@ export function ExplorePage() {
           <p>Find your bearings on Earth, explore NASA&apos;s global ocean-current visualization, and learn how rendered pixels become sound.</p>
           <nav className="explore-waypoints" aria-label="Explore this page">
             <a href="#interactive-earth"><span>01</span>Interactive Earth</a>
-            <a href="#nasa-visualization"><span>02</span>NASA visualization</a>
-            <a href="#guess-ocean"><span>03</span>Guess the ocean</a>
-            <a href="#science-guide"><span>04</span>Science Guide</a>
+            <a href="#ocean-expedition"><span>02</span>Ocean Expedition</a>
+            <a href="#my-discoveries"><span>03</span>My discoveries</a>
+            <a href="#nasa-visualization"><span>04</span>NASA visualization</a>
+            <a href="#guess-ocean"><span>05</span>Guess the ocean</a>
+            <a href="#science-guide"><span>06</span>Science Guide</a>
           </nav>
         </div>
       </PageContainer>
@@ -90,16 +251,95 @@ export function ExplorePage() {
       <PageContainer>
         <header className="explore-section-heading explore-earth-heading">
           <span className="explore-section-index">01 <i /> INTERACTIVE EARTH</span>
-          <div><h2 id="earth-heading">Find a place to begin.</h2><p>Choose a highlighted region to orient your exploration of NASA #3912.</p></div>
+          <div><h2 id="earth-heading">Find a place to begin.</h2><p>Choose an approximate region entry point to explore the global NASA #3912 visualization. These markers are not validated video coordinates.</p></div>
         </header>
-        <EarthGlobe />
+        <div className="explore-discovery-layout">
+          <EarthGlobe selectedRegionId={selectedRegion?.id ?? ''} onRegionSelect={selectRegion} />
+          <aside className="explore-region-panel" id="available-regions" aria-label="Ocean region explorer">
+            <div className="region-panel-heading">
+              <div><span className="explore-section-index"><Compass size={15} aria-hidden="true" /> REGION ENTRY POINTS</span><h3>Choose a region</h3></div>
+              <span>{availableRegions.length} available</span>
+            </div>
+            <button className="region-surprise-button" type="button" onClick={surpriseMe} disabled={availableRegions.length === 0}><Dice5 size={17} aria-hidden="true" /> Surprise me</button>
+            {surpriseMessage && <p className="region-surprise-status" role="status" aria-live="polite">{surpriseMessage}</p>}
+            <div className="region-list" role="group" aria-label="Available ocean regions">
+              {oceanRegions.map((region) => {
+                const available = region.availabilityStatus === 'available' && datasets.some((item) => item.id === region.datasetId)
+                return <button key={region.id} type="button" className="region-list-item" aria-pressed={selectedRegion?.id === region.id} disabled={!available} onClick={() => selectRegion(region.id)}>
+                  <span className="region-marker-symbol" aria-hidden="true"><MapPin size={17} /></span>
+                  <span className="region-list-copy"><b>{region.name}</b><small>{region.ocean} · {available ? 'Available' : 'Unavailable'}</small><span>{region.shortDescription}</span></span>
+                  <span className="region-selected-indicator">{selectedRegion?.id === region.id ? 'Selected' : available ? 'Select' : 'Unavailable'}</span>
+                </button>
+              })}
+              {availableRegions.length === 0 && <p className="region-empty-state">No regions are currently available. The global NASA visualization remains available in Studio.</p>}
+            </div>
+
+            {selectedRegion && <section className="region-information-card" aria-labelledby="selected-region-heading" aria-live="polite" aria-atomic="true">
+              <span className="explore-section-index">SELECTED REGION</span>
+              <h3 id="selected-region-heading">{selectedRegion.name}</h3>
+              <p className="region-information-ocean">{selectedRegion.ocean}</p>
+              <button className="region-save-button" type="button" aria-pressed={discoveries.savedRegions.some((item) => item.regionId === selectedRegion.id)} onClick={() => toggleSavedRegion(selectedRegion.id)}><Bookmark size={16} aria-hidden="true" fill={discoveries.savedRegions.some((item) => item.regionId === selectedRegion.id) ? 'currentColor' : 'none'} />{discoveries.savedRegions.some((item) => item.regionId === selectedRegion.id) ? 'Remove from My Discoveries' : 'Save region'}</button>
+              {regionSaveMessage && <p className="region-save-feedback" role="status" aria-live="polite">{regionSaveMessage}</p>}
+              <dl className="region-information-facts">
+                <div><dt>APPROXIMATE MARKER</dt><dd>{Math.abs(selectedRegion.latitude)}° {selectedRegion.latitude < 0 ? 'S' : 'N'} · {Math.abs(selectedRegion.longitude)}° {selectedRegion.longitude < 0 ? 'W' : 'E'}</dd></div>
+                <div><dt>COORDINATE STATUS</dt><dd>Approximate · not independently validated</dd></div>
+                <div><dt>VISUALIZATION</dt><dd>NASA SVS #3912 · global view</dd></div>
+              </dl>
+              <p className="region-information-description">{selectedRegion.scientificDescription}</p>
+              <p className="region-information-limit">No local temperature, current velocity, direction, depth, or region-specific sound is available. Selection does not change the global video or its pixel analysis.</p>
+              <Link className="button button-primary region-explore-action" to={`/studio?${new URLSearchParams({ region: selectedRegion.id, dataset: selectedRegion.datasetId }).toString()}`}>Explore Region in Studio <ArrowRight size={16} aria-hidden="true" /></Link>
+              <a className="region-source-link" href={getDataset(selectedRegion.datasetId).sourceUrl} target="_blank" rel="noreferrer">Open NASA source record <ArrowUpRight size={14} aria-hidden="true" /></a>
+            </section>}
+          </aside>
+        </div>
       </PageContainer>
     </section>
+
+    <section className="explore-expedition-section" id="ocean-expedition" aria-labelledby="expedition-heading">
+      <PageContainer>
+        <header className="explore-section-heading expedition-heading">
+          <span className="explore-section-index">02 <i /> OCEAN EXPEDITION</span>
+          <div><h2 id="expedition-heading">Follow a basin into the global view.</h2><p>Choose a guided introduction built from EarthSonic’s existing region entry points. These are approximate exploration markers, not locally sampled NASA measurements.</p></div>
+        </header>
+        {!activeExpedition ? <div className="expedition-overview" aria-label="Ocean expeditions">
+          {oceanExpeditions.map((expedition) => {
+            const available = expedition.regionIds.length > 0 && expedition.regionIds.every((id) => {
+              const region = getOceanRegion(id)
+              return region?.availabilityStatus === 'available'
+            })
+            return <article className={`expedition-card${available ? '' : ' expedition-card-unavailable'}`} key={expedition.id}>
+              <span className="explore-section-index">{expedition.ocean.toUpperCase()}</span>
+              <h3>{expedition.title}</h3>
+              <p>{expedition.description}</p>
+              <div className="expedition-card-meta"><span>{available ? `${expedition.regionIds.length} mapped stop` : 'Not yet mapped'}</span><span>{available ? 'Approximate entry point' : 'No existing region'}</span></div>
+              <button className="button button-secondary expedition-start" type="button" disabled={!available} onClick={() => chooseExpedition(expedition.id)}>{available ? <>Start Expedition <ArrowRight size={16} aria-hidden="true" /></> : 'Journey unavailable yet'}</button>
+            </article>
+          })}
+          <p className="expedition-science-note">The North Pacific and North Atlantic each currently have one region entry point, so their journeys are single-stop introductions. No Indian Ocean region exists in the current project data. The Southern Ocean is a separate basin and is not substituted.</p>
+        </div> : <section className="expedition-active" aria-label={`${activeExpedition.title} progress`}>
+          <div className="expedition-active-top"><div><span className="explore-section-index">GUIDED JOURNEY · {activeExpedition.ocean.toUpperCase()}</span><h3>{activeExpedition.title}</h3></div><button type="button" className="expedition-exit" onClick={exitExpedition}><X size={16} aria-hidden="true" /> Exit expedition</button></div>
+          {expeditionComplete ? <div className="expedition-completion" role="status" aria-live="polite">
+            <span className="explore-section-index">JOURNEY COMPLETE</span><h4>You explored the {activeExpedition.ocean} entry point.</h4>
+            <p className="expedition-save-feedback">{completionMessage}</p>
+            <p>Visited: {activeExpedition.regionIds.map((id) => getOceanRegion(id)?.name).filter(Boolean).join(' · ')}</p>
+            <div className="expedition-actions"><button className="button button-secondary" type="button" onClick={replayExpedition}><RotateCcw size={16} aria-hidden="true" /> Replay journey</button><button className="button button-primary" type="button" onClick={exitExpedition}>Return to Explore <ArrowRight size={16} aria-hidden="true" /></button></div>
+          </div> : activeExpeditionRegion ? <>
+            <div className="expedition-progress-line"><span>STOP {String(expeditionStopIndex + 1).padStart(2, '0')} / {String(activeExpedition.regionIds.length).padStart(2, '0')}</span><span>{Math.round(((expeditionStopIndex + 1) / activeExpedition.regionIds.length) * 100)}% THROUGH STOPS</span></div>
+            <div className="expedition-progress-track" role="progressbar" aria-label="Expedition progress" aria-valuemin={0} aria-valuemax={activeExpedition.regionIds.length} aria-valuenow={expeditionStopIndex + 1}><span style={{ transform: `scaleX(${(expeditionStopIndex + 1) / activeExpedition.regionIds.length})` }} /></div>
+            <div className="expedition-stop-layout"><div className="expedition-route" aria-label="Expedition stops">{activeExpedition.regionIds.map((id, index) => { const region = getOceanRegion(id); return <div className={`expedition-route-stop${index === expeditionStopIndex ? ' is-current' : ''}`} key={id}><span>{String(index + 1).padStart(2, '0')}</span><b>{region?.name}</b></div> })}</div>
+              <article className="expedition-stop-card"><span className="explore-section-index">CURRENT STOP</span><h4>{activeExpeditionRegion.name}</h4><p>{activeExpeditionRegion.scientificDescription}</p><p className="expedition-limit">The NASA video remains a global visualization. Region selection does not crop the video or generate region-specific audio.</p><Link className="button button-primary" to={`/studio?${new URLSearchParams({ region: activeExpeditionRegion.id, dataset: activeExpeditionRegion.datasetId }).toString()}`}>Listen in Studio <ArrowRight size={16} aria-hidden="true" /></Link></article></div>
+            <div className="expedition-navigation"><button className="button button-secondary" type="button" disabled={expeditionStopIndex === 0} onClick={() => moveExpedition(-1)}><ArrowLeft size={16} aria-hidden="true" /> Previous Stop</button><button className="button button-primary" type="button" onClick={() => moveExpedition(1)}>{expeditionStopIndex === activeExpedition.regionIds.length - 1 ? 'Complete Journey' : 'Next Stop'} <ArrowRight size={16} aria-hidden="true" /></button></div>
+          </> : null}
+        </section>}
+      </PageContainer>
+    </section>
+
+    <MyDiscoveries discoveries={discoveries} storageAvailable={storageAvailable} onSaveNote={saveRegionNote} onDeleteNote={deleteRegionNote} onRemoveRegion={removeSavedRegion} />
 
     <section className="explore-source-section" id="nasa-visualization" aria-labelledby="nasa-source-heading">
       <PageContainer>
         <header className="explore-section-heading explore-source-heading">
-          <span className="explore-section-index">02 <i /> THE NASA VISUALIZATION</span>
+          <span className="explore-section-index">04 <i /> THE NASA VISUALIZATION</span>
           <h2 id="nasa-source-heading">Global Sea Surface Currents<br /><em>and Temperature.</em></h2>
           <p>ECCO2-modeled sea surface current flows, colored by corresponding sea surface temperature. A historical visualization, not a live feed.</p>
         </header>
@@ -125,7 +365,7 @@ export function ExplorePage() {
     <section className="explore-quiz-section" id="guess-ocean" aria-labelledby="quiz-section-heading">
       <PageContainer>
         <header className="explore-section-heading explore-quiz-heading">
-          <span className="explore-section-index">03 <i /> LISTEN · GUESS · LEARN</span>
+          <span className="explore-section-index">05 <i /> LISTEN · GUESS · LEARN</span>
           <div><h2 id="quiz-section-heading">Listen for the pattern.</h2><p>A short clue tests your understanding of EarthSonic&apos;s visual-to-sound mapping.</p></div>
         </header>
         <section className="guess-game" aria-labelledby="guess-heading">
@@ -149,20 +389,6 @@ export function ExplorePage() {
       </PageContainer>
     </section>
 
-    <section className="explore-guide-section" id="science-guide" aria-labelledby="science-guide-heading">
-      <PageContainer>
-        <header className="explore-section-heading explore-guide-heading">
-          <span className="explore-section-index">04 <i /> SCIENCE GUIDE</span>
-          <h2 id="science-guide-heading">What the image can tell us.<br /><em>And what it cannot.</em></h2>
-        </header>
-        <ol className="science-guide-steps">
-          <li><span className="guide-number">01</span><div><span className="guide-label">THE SOURCE</span><h3>NASA visualization</h3><p>{dataset.description} The displayed flow and color represent model output; this is a historical visualization, not a live data feed.</p></div></li>
-          <li><span className="guide-number">02</span><div><span className="guide-label">THE ANALYSIS</span><h3>Rendered image features</h3><p>EarthSonic samples selected features from rendered video frames. Brightness, color balance and image change are computed from pixels; they are not direct ECCO2 numerical measurements.</p></div></li>
-          <li><span className="guide-number">03</span><div><span className="guide-label">THE SOUND</span><h3>Artistic sound mapping</h3><p>Selected visual features control pitch, sound level, stereo position and modulation. The generated sound is an artistic interpretation, not recorded ocean audio.</p><ul className="guide-mappings">{dataset.sonification.map((item) => <li key={item.input}><span>{item.input}</span><b>{item.output}</b></li>)}</ul></div></li>
-        </ol>
-        <p className="science-guide-limit">Rendering, interpolation, compression and sample spacing can affect image-derived features. No local current-speed estimate or pointwise temperature value is produced.</p>
-        <a className="guide-source-link" href={dataset.sourceUrl} target="_blank" rel="noreferrer">Read NASA SVS #3912 <ArrowUpRight size={15} aria-hidden="true" /></a>
-      </PageContainer>
-    </section>
+    <div id="science-guide"><PageContainer><ScienceGuide dataset={dataset} /></PageContainer></div>
   </div>
 }

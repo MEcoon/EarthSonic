@@ -15,9 +15,17 @@ export class SonificationEngine {
   private panner: StereoPannerNode
   private volumeNode: GainNode
   private analyser: AnalyserNode
-  private preset: SoundPresetId = 'ambient'
+  private preset: SoundPresetId = 'calm-ocean'
   private muted = false
   private volume = 0.42
+  private modulationIntensity = 0.7
+  private smoothingSeconds = 0.12
+  private profileModulationDepth = 0.08
+  private closed = false
+  private stateListeners = new Set<(state: AudioContextState) => void>()
+  private readonly handleContextStateChange = () => {
+    for (const listener of this.stateListeners) listener(this.context.state)
+  }
 
   constructor() {
     const AudioContextConstructor = window.AudioContext
@@ -43,7 +51,7 @@ export class SonificationEngine {
     this.pulse.frequency.value = 1.5
     this.toneGain.gain.value = 0.7
     this.overtoneGain.gain.value = 0.1
-    this.pulseDepth.gain.value = 0.14
+    this.pulseDepth.gain.value = this.profileModulationDepth * this.modulationIntensity
     this.mix.gain.value = 0.55
     this.toneFilter.type = 'lowpass'
     this.toneFilter.frequency.value = 1400
@@ -65,23 +73,52 @@ export class SonificationEngine {
     this.panner.connect(this.volumeNode)
     this.volumeNode.connect(this.analyser)
     this.analyser.connect(this.context.destination)
+    this.context.addEventListener('statechange', this.handleContextStateChange)
     this.tone.start()
     this.overtone.start()
     this.pulse.start()
     this.applyPreset(this.preset)
   }
 
-  async play() { await this.context.resume() }
+  async play() {
+    await this.context.resume()
+    if (this.context.state !== 'running') throw new Error('The browser kept the audio context suspended.')
+  }
   async pause() { if (this.context.state === 'running') await this.context.suspend() }
-  async close() { await this.context.close() }
+  subscribeState(listener: (state: AudioContextState) => void) {
+    this.stateListeners.add(listener)
+    listener(this.context.state)
+    return () => this.stateListeners.delete(listener)
+  }
+  async close() {
+    if (this.closed) return
+    this.closed = true
+    this.context.removeEventListener('statechange', this.handleContextStateChange)
+    this.stateListeners.clear()
+    for (const oscillator of [this.tone, this.overtone, this.pulse]) {
+      try { oscillator.stop() } catch { /* It may already be stopped during teardown. */ }
+      oscillator.disconnect()
+    }
+    for (const node of [this.toneGain, this.overtoneGain, this.pulseDepth, this.mix, this.toneFilter, this.mappingGain, this.panner, this.volumeNode, this.analyser]) node.disconnect()
+    if (this.context.state !== 'closed') await this.context.close()
+  }
 
   setMapping(controls: SonificationControls) {
     const now = this.context.currentTime
-    this.tone.frequency.setTargetAtTime(controls.toneHz, now, 0.06)
-    this.overtone.frequency.setTargetAtTime(controls.toneHz * 2, now, 0.06)
-    this.pulse.frequency.setTargetAtTime(controls.modulationRateHz, now, 0.08)
-    this.mappingGain.gain.setTargetAtTime(Math.max(0, Math.min(1, controls.amplitude)), now, 0.08)
-    this.panner.pan.setTargetAtTime(controls.pan, now, 0.08)
+    this.tone.frequency.setTargetAtTime(controls.toneHz, now, this.smoothingSeconds)
+    this.overtone.frequency.setTargetAtTime(controls.toneHz * 2, now, this.smoothingSeconds)
+    this.pulse.frequency.setTargetAtTime(controls.modulationRateHz, now, this.smoothingSeconds)
+    this.mappingGain.gain.setTargetAtTime(Math.max(0, Math.min(1, controls.amplitude)), now, this.smoothingSeconds)
+    this.panner.pan.setTargetAtTime(controls.pan, now, this.smoothingSeconds)
+  }
+
+  setModulationIntensity(value: number) {
+    this.modulationIntensity = Math.max(0, Math.min(1, value))
+    this.pulseDepth.gain.setTargetAtTime(this.profileModulationDepth * this.modulationIntensity, this.context.currentTime, this.smoothingSeconds)
+  }
+
+  setSmoothing(value: number) {
+    this.smoothingSeconds = Math.max(0.02, Math.min(0.5, value))
   }
 
   setVolume(value: number) {
@@ -97,26 +134,19 @@ export class SonificationEngine {
   applyPreset(preset: SoundPresetId) {
     this.preset = preset
     const now = this.context.currentTime
-    if (preset === 'minimal') {
-      this.tone.type = 'sine'
-      this.overtoneGain.gain.setTargetAtTime(0, now, 0.08)
-      this.toneFilter.frequency.setTargetAtTime(1800, now, 0.08)
-    } else if (preset === 'piano') {
-      this.tone.type = 'triangle'
-      this.overtone.type = 'sine'
-      this.overtoneGain.gain.setTargetAtTime(0.13, now, 0.08)
-      this.toneFilter.frequency.setTargetAtTime(3200, now, 0.08)
-    } else if (preset === 'electronic') {
-      this.tone.type = 'sawtooth'
-      this.overtone.type = 'square'
-      this.overtoneGain.gain.setTargetAtTime(0.055, now, 0.08)
-      this.toneFilter.frequency.setTargetAtTime(6200, now, 0.08)
-    } else {
-      this.tone.type = 'sine'
-      this.overtone.type = 'triangle'
-      this.overtoneGain.gain.setTargetAtTime(0.1, now, 0.08)
-      this.toneFilter.frequency.setTargetAtTime(1400, now, 0.08)
-    }
+    const profile = {
+      'calm-ocean': { overtone: 0.055, filter: 920, mix: 0.48, modulationDepth: 0.055, analyserSmoothing: 0.88 },
+      'deep-ocean': { overtone: 0.095, filter: 680, mix: 0.52, modulationDepth: 0.085, analyserSmoothing: 0.84 },
+      'dynamic-currents': { overtone: 0.17, filter: 2850, mix: 0.56, modulationDepth: 0.19, analyserSmoothing: 0.72 },
+      experimental: { overtone: 0.22, filter: 5200, mix: 0.54, modulationDepth: 0.27, analyserSmoothing: 0.62 },
+    }[preset]
+    const transition = 0.16
+    this.profileModulationDepth = profile.modulationDepth
+    this.overtoneGain.gain.setTargetAtTime(profile.overtone, now, transition)
+    this.toneFilter.frequency.setTargetAtTime(profile.filter, now, transition)
+    this.mix.gain.setTargetAtTime(profile.mix, now, transition)
+    this.pulseDepth.gain.setTargetAtTime(this.profileModulationDepth * this.modulationIntensity, now, transition)
+    this.analyser.smoothingTimeConstant = profile.analyserSmoothing
   }
 
   readFrequencyData(target: Uint8Array) { this.analyser.getByteFrequencyData(target) }

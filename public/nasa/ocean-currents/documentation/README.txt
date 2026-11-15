@@ -4,7 +4,7 @@ NASA record: https://svs.gsfc.nasa.gov/3912/
 NASA requested credit: NASA/Goddard Space Flight Center Scientific Visualization Studio
 
 Local source assets
-- videos/ecco2_sst_flow.webmhd.webm: NASA assembled visualization, 960 x 540, 15.7 MB.
+- videos/ecco2_sst_flow.webmhd.webm: locally inspected VP8 WebM, 1080 x 540, 30 fps, 66.700 seconds, 15,653,144 bytes (ffprobe). NASA currently catalogs the same filename at 960 x 540 and 14.9 MB. The local file's transformation history and byte-for-byte provenance have not been established; do not claim it is a verified original or confirmed re-encode.
 - images/global_ecco2_temperature_currents.jpg: NASA SVS preview still, 2048 x 1024, about 1.0 MB.
 - images/sst_ecco2_colorbar.png: NASA SVS temperature legend, 310 x 95.
 - metadata/nasa-svs-3912.json: source metadata and resource URLs.

@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { oceanRegions } from '../../data/oceanRegions'
 
 const EARTH_TEXTURE = '/nasa/ocean-currents/images/global_ecco2_temperature_currents.jpg'
-const locations = [
-  { name: 'North Atlantic', lat: 42, lon: -42, detail: 'Explore the Gulf Stream region in NASA’s ocean current visualization.' },
-  { name: 'North Pacific', lat: 35, lon: 165, detail: 'Explore North Pacific flow patterns in NASA’s ocean current visualization.' },
-  { name: 'Southern Ocean', lat: -52, lon: 55, detail: 'Explore Southern Ocean circulation in NASA’s ocean current visualization.' },
-]
+const MIN_CAMERA_DISTANCE = 3.8
+const MAX_CAMERA_DISTANCE = 6.6
 
 function spherePosition(lat: number, lon: number, radius: number) {
   const phi = (90 - lat) * Math.PI / 180
@@ -14,23 +12,22 @@ function spherePosition(lat: number, lon: number, radius: number) {
   return new THREE.Vector3(-radius * Math.sin(phi) * Math.cos(theta), radius * Math.cos(phi), radius * Math.sin(phi) * Math.sin(theta))
 }
 
-export function EarthGlobe() {
+type EarthGlobeProps = {
+  selectedRegionId: string
+  onRegionSelect: (regionId: string) => void
+}
+
+export function EarthGlobe({ selectedRegionId, onRegionSelect }: EarthGlobeProps) {
   const hostRef = useRef<HTMLDivElement>(null)
-  const markersRef = useRef<THREE.Mesh[]>([])
-  const selectedRegionRef = useRef(locations[0].name)
-  const [active, setActive] = useState(locations[0])
+  const selectedRegionIdRef = useRef(selectedRegionId)
+  const onRegionSelectRef = useRef(onRegionSelect)
+  const targetCameraDistanceRef = useRef(5.25)
+  const hoveredRegionIdRef = useRef<string | null>(null)
   const [textureState, setTextureState] = useState<'loading' | 'ready' | 'fallback'>('loading')
   const [webglAvailable, setWebglAvailable] = useState(true)
 
-  const selectRegion = (location: typeof locations[number]) => {
-    selectedRegionRef.current = location.name
-    setActive(location)
-    markersRef.current.forEach((marker) => {
-      const selected = marker.userData.location.name === location.name
-      marker.scale.setScalar(selected ? 1.8 : 1)
-      ;(marker.material as THREE.MeshBasicMaterial).color.setHex(selected ? 0x4ade80 : 0x38bdf8)
-    })
-  }
+  selectedRegionIdRef.current = selectedRegionId
+  onRegionSelectRef.current = onRegionSelect
 
   useEffect(() => {
     const host = hostRef.current
@@ -44,11 +41,19 @@ export function EarthGlobe() {
     let startY = 0
     let pointerMoved = false
     let pinchDistance = 0
-    const pointers = new Map<number, { x: number; y: number }>()
     let velocity = 0
+    let focusedRegionId: string | null = null
+    let focusAnimating = false
+    let focusStartedAt = 0
+    const focusDuration = 1050
+    const focusStart = new THREE.Quaternion()
+    const focusTarget = new THREE.Quaternion()
+    const cameraDirection = new THREE.Vector3(0, 0, 1)
+    let reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('user-reduced-motion')
+    const pointers = new Map<number, { x: number; y: number }>()
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100)
-    camera.position.z = 5.25
+    camera.position.z = targetCameraDistanceRef.current
     let renderer: THREE.WebGLRenderer
     try {
       renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' })
@@ -57,10 +62,11 @@ export function EarthGlobe() {
       setTextureState('fallback')
       return
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
     renderer.setClearColor(0x000000, 0)
     host.appendChild(renderer.domElement)
-    renderer.domElement.setAttribute('aria-hidden', 'true')
+    const canvas = renderer.domElement
+    canvas.setAttribute('aria-hidden', 'true')
 
     const earth = new THREE.Group()
     scene.add(earth)
@@ -80,19 +86,26 @@ export function EarthGlobe() {
     const rim = new THREE.PointLight(0x38bdf8, 1.15, 0)
     rim.position.set(3, -1.5, -2.5)
     scene.add(ambient, sun, rim)
-    const markers = locations.map((location) => {
-      const selected = location.name === selectedRegionRef.current
+
+    const markers = oceanRegions.filter((region) => region.availabilityStatus === 'available').map((region) => {
       const point = new THREE.Mesh(
-        new THREE.SphereGeometry(0.045, 12, 12),
-        new THREE.MeshBasicMaterial({ color: selected ? 0x4ade80 : 0x38bdf8 }),
+        new THREE.SphereGeometry(0.047, 16, 12),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8 }),
       )
-      point.scale.setScalar(selected ? 1.8 : 1)
-      point.position.copy(spherePosition(location.lat, location.lon, 1.57))
-      point.userData.location = location
+      point.position.copy(spherePosition(region.latitude, region.longitude, 1.575))
+      point.userData.regionId = region.id
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.075, 0.092, 28),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }),
+      )
+      ring.position.copy(point.position.clone().normalize().multiplyScalar(0.012))
+      ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), point.position.clone().normalize())
+      ring.visible = false
+      point.add(ring)
       earth.add(point)
       return point
     })
-    markersRef.current = markers
+
     let texture: THREE.Texture | undefined
     const loader = new THREE.TextureLoader()
     loader.setCrossOrigin('anonymous')
@@ -116,18 +129,75 @@ export function EarthGlobe() {
     const observer = new ResizeObserver(resize)
     observer.observe(host)
     resize()
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const updateReducedMotion = () => { reducedMotion = motionQuery.matches || document.documentElement.classList.contains('user-reduced-motion') }
+    const preferenceObserver = new MutationObserver(updateReducedMotion)
+    preferenceObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    motionQuery.addEventListener('change', updateReducedMotion)
+
     const animate = () => {
       frameId = window.requestAnimationFrame(animate)
-      if (!dragging && !prefersReducedMotion.matches) earth.rotation.y += 0.00045 + velocity
-      else if (!dragging) earth.rotation.y += velocity
-      velocity *= 0.96
+      const selectedId = selectedRegionIdRef.current
+      if (selectedId !== focusedRegionId) {
+        focusedRegionId = selectedId
+        const selectedMarker = markers.find((marker) => marker.userData.regionId === selectedId)
+        velocity = 0
+        if (selectedMarker) {
+          focusStart.copy(earth.quaternion)
+          focusTarget.setFromUnitVectors(selectedMarker.position.clone().normalize(), cameraDirection)
+          if (reducedMotion) {
+            earth.quaternion.copy(focusTarget)
+            focusAnimating = false
+          } else {
+            focusStartedAt = performance.now()
+            focusAnimating = true
+          }
+        } else {
+          focusAnimating = false
+        }
+      }
+      if (focusAnimating && !dragging) {
+        const progress = Math.min(1, (performance.now() - focusStartedAt) / focusDuration)
+        const easedProgress = progress * progress * (3 - 2 * progress)
+        earth.quaternion.slerpQuaternions(focusStart, focusTarget, easedProgress)
+        if (progress >= 1) focusAnimating = false
+      } else if (!dragging && !focusAnimating) {
+        // Keep an active selection in view. Resume the ambient turn only when
+        // there is no selected region; post-drag inertia remains user-driven.
+        if (!selectedId && !reducedMotion) earth.rotation.y += 0.00045
+        if (!selectedId || Math.abs(velocity) > 0.00001) earth.rotation.y += velocity
+      }
+      velocity *= reducedMotion ? 0 : 0.96
+      camera.position.z = reducedMotion
+        ? targetCameraDistanceRef.current
+        : THREE.MathUtils.lerp(camera.position.z, targetCameraDistanceRef.current, 0.16)
+      for (const marker of markers) {
+        const isSelected = marker.userData.regionId === selectedRegionIdRef.current
+        const isHovered = marker.userData.regionId === hoveredRegionIdRef.current
+        const targetScale = isSelected ? 1.65 : isHovered ? 1.35 : 1
+        marker.scale.setScalar(reducedMotion ? targetScale : THREE.MathUtils.lerp(marker.scale.x, targetScale, 0.22))
+        ;(marker.material as THREE.MeshBasicMaterial).color.setHex(isSelected ? 0x4ade80 : 0x38bdf8)
+        marker.children[0].visible = isSelected
+      }
       renderer.render(scene, camera)
     }
     animate()
+
+    const setZoomTarget = (distance: number) => {
+      targetCameraDistanceRef.current = Math.max(MIN_CAMERA_DISTANCE, Math.min(MAX_CAMERA_DISTANCE, distance))
+      if (reducedMotion) camera.position.z = targetCameraDistanceRef.current
+    }
+    const raycastMarkerAt = (clientX: number, clientY: number) => {
+      const rect = canvas.getBoundingClientRect()
+      const pointer = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1)
+      const raycaster = new THREE.Raycaster()
+      raycaster.setFromCamera(pointer, camera)
+      return raycaster.intersectObjects(markers, false)[0]?.object
+    }
     const onDown = (event: PointerEvent) => {
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
-      renderer.domElement.setPointerCapture(event.pointerId)
+      canvas.setPointerCapture(event.pointerId)
       pointerMoved = false
       if (pointers.size > 1) {
         dragging = false
@@ -144,19 +214,31 @@ export function EarthGlobe() {
       if (pointers.size > 1) {
         const [first, second] = [...pointers.values()]
         const nextDistance = Math.hypot(first.x - second.x, first.y - second.y)
-        if (pinchDistance > 0) camera.position.z = Math.max(3.8, Math.min(6.6, camera.position.z + (pinchDistance - nextDistance) * 0.008))
+        if (pinchDistance > 0) setZoomTarget(targetCameraDistanceRef.current + (pinchDistance - nextDistance) * 0.008)
         pinchDistance = nextDistance
         pointerMoved = true
         return
       }
-      if (!dragging) return
+      if (!dragging) {
+        const hovered = raycastMarkerAt(event.clientX, event.clientY)
+        hoveredRegionIdRef.current = (hovered?.userData.regionId as string | undefined) ?? null
+        canvas.style.cursor = hovered ? 'pointer' : 'grab'
+        return
+      }
       const dx = event.clientX - lastX
       const dy = event.clientY - lastY
-      if (Math.abs(event.clientX - startX) > 8 || Math.abs(event.clientY - startY) > 8) pointerMoved = true
+      if (Math.abs(event.clientX - startX) > 8 || Math.abs(event.clientY - startY) > 8) {
+        pointerMoved = true
+        // A real drag takes control from the focus animation and preserves
+        // the user's chosen orientation instead of snapping back afterward.
+        focusAnimating = false
+        focusedRegionId = selectedRegionIdRef.current
+      }
       earth.rotation.y += dx * 0.006
       earth.rotation.x = Math.max(-0.5, Math.min(0.5, earth.rotation.x + dy * 0.004))
       velocity = dx * 0.0008
-      lastX = event.clientX; lastY = event.clientY
+      lastX = event.clientX
+      lastY = event.clientY
     }
     const onUp = (event: PointerEvent) => {
       pointers.delete(event.pointerId)
@@ -166,12 +248,15 @@ export function EarthGlobe() {
         startX = lastX = remaining.x
         startY = lastY = remaining.y
         pointerMoved = true
-      } else dragging = false
+      } else {
+        dragging = false
+        canvas.style.cursor = hoveredRegionIdRef.current ? 'pointer' : 'grab'
+      }
       pinchDistance = 0
     }
     const onWheel = (event: WheelEvent) => {
       event.preventDefault()
-      camera.position.z = Math.max(3.8, Math.min(6.6, camera.position.z + event.deltaY * 0.003))
+      setZoomTarget(targetCameraDistanceRef.current + event.deltaY * 0.003)
     }
     const onKeyDown = (event: KeyboardEvent) => {
       const step = event.shiftKey ? 0.2 : 0.08
@@ -179,24 +264,20 @@ export function EarthGlobe() {
       else if (event.key === 'ArrowRight') earth.rotation.y += step
       else if (event.key === 'ArrowUp') earth.rotation.x = Math.min(0.5, earth.rotation.x + step)
       else if (event.key === 'ArrowDown') earth.rotation.x = Math.max(-0.5, earth.rotation.x - step)
-      else if (event.key === '+' || event.key === '=') camera.position.z = Math.max(3.8, camera.position.z - 0.25)
-      else if (event.key === '-') camera.position.z = Math.min(6.6, camera.position.z + 0.25)
+      else if (event.key === '+' || event.key === '=') setZoomTarget(targetCameraDistanceRef.current - 0.35)
+      else if (event.key === '-') setZoomTarget(targetCameraDistanceRef.current + 0.35)
       else return
       event.preventDefault()
     }
     const onClick = (event: MouseEvent) => {
       if (pointerMoved) { pointerMoved = false; return }
-      const rect = renderer.domElement.getBoundingClientRect()
-      const pointer = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1)
-      const raycaster = new THREE.Raycaster()
-      raycaster.setFromCamera(pointer, camera)
-      const selected = raycaster.intersectObjects(markers)[0]?.object.userData.location as typeof locations[number] | undefined
-      if (selected) selectRegion(selected)
+      const selected = raycastMarkerAt(event.clientX, event.clientY)
+      const id = selected?.userData.regionId as string | undefined
+      if (id) onRegionSelectRef.current(id)
     }
-    const canvas = renderer.domElement
     canvas.tabIndex = 0
     canvas.setAttribute('role', 'application')
-    canvas.setAttribute('aria-label', 'Interactive 3D Earth globe. Use arrow keys to rotate, plus or minus to zoom, drag to rotate, scroll to zoom, or pinch on a touch screen.')
+    canvas.setAttribute('aria-label', 'Interactive 3D Earth. Use arrow keys to rotate and plus or minus to zoom. Drag to rotate, scroll to zoom, or pinch on touch screens. Choose regions using the accessible region list.')
     canvas.addEventListener('pointerdown', onDown)
     canvas.addEventListener('pointermove', onMove)
     canvas.addEventListener('pointerup', onUp)
@@ -204,38 +285,52 @@ export function EarthGlobe() {
     canvas.addEventListener('wheel', onWheel, { passive: false })
     canvas.addEventListener('click', onClick)
     canvas.addEventListener('keydown', onKeyDown)
+
     return () => {
       disposed = true
       window.cancelAnimationFrame(frameId)
       observer.disconnect()
-      canvas.removeEventListener('pointerdown', onDown); canvas.removeEventListener('pointermove', onMove)
-      canvas.removeEventListener('pointerup', onUp); canvas.removeEventListener('pointercancel', onUp)
-      canvas.removeEventListener('wheel', onWheel); canvas.removeEventListener('click', onClick)
+      preferenceObserver.disconnect()
+      motionQuery.removeEventListener('change', updateReducedMotion)
+      canvas.removeEventListener('pointerdown', onDown)
+      canvas.removeEventListener('pointermove', onMove)
+      canvas.removeEventListener('pointerup', onUp)
+      canvas.removeEventListener('pointercancel', onUp)
+      canvas.removeEventListener('wheel', onWheel)
+      canvas.removeEventListener('click', onClick)
       canvas.removeEventListener('keydown', onKeyDown)
       texture?.dispose()
-      markersRef.current = []
-      sphere.geometry.dispose(); atmosphere.geometry.dispose()
-      ;(sphere.material as THREE.Material).dispose(); (atmosphere.material as THREE.Material).dispose()
-      markers.forEach((marker) => { marker.geometry.dispose(); (marker.material as THREE.Material).dispose() })
-      renderer.dispose(); host.removeChild(canvas)
+      sphere.geometry.dispose()
+      atmosphere.geometry.dispose()
+      ;(sphere.material as THREE.Material).dispose()
+      ;(atmosphere.material as THREE.Material).dispose()
+      markers.forEach((marker) => {
+        marker.geometry.dispose()
+        ;(marker.material as THREE.Material).dispose()
+        const ring = marker.children[0] as THREE.Mesh
+        ring.geometry.dispose()
+        ;(ring.material as THREE.Material).dispose()
+      })
+      renderer.dispose()
+      if (host.contains(canvas)) host.removeChild(canvas)
     }
   }, [])
 
-  return <div className="globe-explorer">
-    <div className="globe-view">
-      <div className="globe-canvas" ref={hostRef} role="group" aria-label="Interactive 3D Earth globe controls" aria-describedby="globe-instructions">
-        {!webglAvailable && <div className="globe-fallback" role="img" aria-label="Static Earth globe illustration">
-          <div className="earth-globe"><div className="earth-shade" /><div className="earth-grid" /></div>
-        </div>}
+  const changeZoom = (amount: number) => {
+    targetCameraDistanceRef.current = Math.max(MIN_CAMERA_DISTANCE, Math.min(MAX_CAMERA_DISTANCE, targetCameraDistanceRef.current + amount))
+  }
+
+  return <div className="globe-view">
+    <div className="globe-canvas" ref={hostRef} aria-describedby="globe-instructions">
+      {!webglAvailable && <div className="globe-fallback" role="img" aria-label="Static Earth globe illustration">
+        <div className="earth-globe"><div className="earth-shade" /><div className="earth-grid" /></div>
+      </div>}
+      <div className="globe-zoom-controls" role="group" aria-label="Globe zoom controls">
+        <button type="button" onClick={() => changeZoom(-0.45)} disabled={!webglAvailable} aria-label="Zoom in on the globe">+</button>
+        <button type="button" onClick={() => changeZoom(0.45)} disabled={!webglAvailable} aria-label="Zoom out on the globe">−</button>
       </div>
-      <div className="globe-instructions" id="globe-instructions"><span><b>Mouse</b> drag to rotate · scroll to zoom</span><span><b>Touch</b> drag to rotate · pinch to zoom</span><span><b>Keyboard</b> arrows rotate · + / − zoom</span></div>
-      <div className="globe-status"><span>{textureState === 'ready' ? 'NASA SVS #3912' : textureState === 'loading' ? 'LOADING NASA TEXTURE' : 'NASA IMAGE UNAVAILABLE · GLOBE FALLBACK'}</span><span>ECCO2 · 2007–2008</span></div>
     </div>
-    <aside className="globe-selection" aria-label="Selected ocean exploration region">
-      <span className="explore-section-index">REGION ENTRY POINT</span>
-      <div className="globe-region" aria-live="polite" aria-atomic="true"><span className="eyebrow">SELECTED REGION</span><h3>{active.name}</h3><p>{active.detail}</p></div>
-      <div className="region-pills" role="group" aria-label="Select an ocean region">{locations.map((location, index) => <button key={location.name} type="button" className={active.name === location.name ? 'selected' : ''} aria-pressed={active.name === location.name} onClick={() => { selectRegion(location); const canvas = hostRef.current?.querySelector('canvas'); canvas?.focus() }}><span>0{index + 1}</span>{location.name}</button>)}</div>
-      <p className="globe-credit">Highlighted regions are starting points for exploration, not local numerical measurements of temperature, current speed or other variables.</p>
-    </aside>
+    <div className="globe-instructions" id="globe-instructions"><span><b>Mouse</b> drag to rotate · scroll to zoom</span><span><b>Touch</b> drag to rotate · pinch to zoom</span><span><b>Keyboard</b> arrows rotate · + / − zoom</span></div>
+    <div className="globe-status"><span>{textureState === 'ready' ? 'NASA SVS #3912 TEXTURE' : textureState === 'loading' ? 'LOADING NASA TEXTURE' : 'NASA IMAGE UNAVAILABLE · GLOBE FALLBACK'}</span><span>Approximate region markers · ECCO2 visualization</span></div>
   </div>
 }

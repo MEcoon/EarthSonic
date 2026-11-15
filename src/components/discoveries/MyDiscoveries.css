@@ -1,0 +1,54 @@
+.my-discoveries-section { padding-block: clamp(66px, 8vw, 112px); border-bottom: 1px solid var(--color-border-subtle); background: linear-gradient(180deg, rgba(16, 27, 48, .38), rgba(8, 15, 30, .2)); scroll-margin-top: 84px; }
+.discoveries-heading { margin-bottom: 20px; }
+.discoveries-storage-status { margin: 0 0 26px; color: var(--color-text-muted); font-size: var(--type-metadata); }
+.discoveries-storage-status.is-limited { color: #fbbf24; }
+.discoveries-empty-state { min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px; border: 1px dashed var(--color-border-strong); border-radius: var(--radius-lg); background: rgba(8, 15, 30, .34); text-align: center; }
+.discoveries-empty-state > svg { color: var(--color-cyan); }
+.discoveries-empty-state h3 { margin: 13px 0 4px; font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 500; letter-spacing: -.04em; }
+.discoveries-empty-state p { max-width: 490px; margin: 0 0 17px; color: var(--color-text-secondary); font-size: var(--type-secondary); line-height: 1.7; }
+.discoveries-empty-state .button { min-height: 46px; gap: 8px; }
+.discoveries-content { display: grid; gap: clamp(35px, 6vw, 72px); }
+.discoveries-subheading { margin-bottom: 16px; padding-bottom: 13px; border-bottom: 1px solid var(--color-border-subtle); }
+.discoveries-subheading h3 { display: flex; align-items: center; gap: 10px; margin: 7px 0 0; font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 500; letter-spacing: -.05em; }
+.discoveries-subheading h3 > span { min-width: 28px; height: 28px; display: inline-grid; place-items: center; border: 1px solid var(--color-border-subtle); border-radius: 50%; color: var(--color-cyan); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0; }
+.discoveries-region-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.discovery-region-card, .discovery-expedition-card { min-width: 0; padding: clamp(17px, 2.5vw, 27px); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); background: linear-gradient(145deg, rgba(16, 27, 48, .7), rgba(7, 15, 29, .56)); }
+.discovery-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
+.discovery-card-heading h3 { margin: 7px 0 0; font-size: clamp(1.5rem, 2.6vw, 2rem); font-weight: 500; letter-spacing: -.05em; }
+.discovery-saved-date { display: inline-flex; align-items: center; gap: 6px; color: var(--color-text-muted); font-size: var(--type-metadata); white-space: nowrap; }
+.discovery-region-description { min-height: 50px; margin: 11px 0 17px; color: var(--color-text-secondary); font-size: var(--type-secondary); line-height: 1.65; }
+.discovery-card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.discovery-card-actions .button { min-height: 44px; gap: 7px; }
+.discovery-remove-button, .discovery-delete-note { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--color-text-muted); font: inherit; font-size: var(--type-metadata); cursor: pointer; }
+.discovery-remove-button:hover, .discovery-delete-note:hover { color: var(--color-white); border-color: var(--color-border-subtle); }
+.discovery-note-editor { margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--color-border-subtle); }
+.discovery-note-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.discovery-note-title h4 { margin: 0; font-size: var(--type-secondary); font-weight: 600; }
+.discovery-note-title span { color: var(--color-text-muted); font-family: var(--font-mono); font-size: var(--type-metadata); }
+.discovery-empty-note { margin: 7px 0; color: var(--color-text-muted); font-size: var(--type-metadata); }
+.discovery-note-editor textarea { width: 100%; min-height: 82px; display: block; margin-top: 10px; padding: 11px 12px; resize: vertical; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: rgba(4, 10, 22, .48); color: var(--color-white); font: inherit; font-size: var(--type-secondary); line-height: 1.55; }
+.discovery-note-editor textarea::placeholder { color: var(--color-text-muted); }
+.discovery-note-editor textarea:focus-visible, .discovery-card-actions a:focus-visible, .discovery-empty-state a:focus-visible, .discovery-expedition-card a:focus-visible, .discovery-note-actions button:focus-visible, .discovery-remove-button:focus-visible { outline: 3px solid var(--color-cyan); outline-offset: 3px; }
+.discovery-note-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+.discovery-note-actions .button { min-height: 42px; }
+.discovery-note-actions .button:disabled { opacity: .52; cursor: not-allowed; }
+.discovery-feedback { margin: 8px 0 0; color: var(--color-cyan); font-size: var(--type-metadata); }
+.discoveries-expedition-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.discovery-expedition-card h4 { margin: 12px 0 3px; font-size: clamp(1.4rem, 2.5vw, 1.9rem); font-weight: 500; letter-spacing: -.04em; }
+.discovery-expedition-card > p { margin: 0; color: var(--color-text-muted); font-size: var(--type-secondary); }
+.discovery-visited-regions { display: grid; gap: 5px; margin: 15px 0; padding-block: 12px; border-block: 1px solid var(--color-border-subtle); }
+.discovery-visited-regions span { color: var(--color-text-muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.discovery-visited-regions b { color: var(--color-silver); font-size: var(--type-secondary); font-weight: 500; }
+.discovery-expedition-card > .button { min-height: 44px; gap: 7px; }
+.discoveries-subsection-empty { margin: 0; padding: 18px 0; color: var(--color-text-muted); font-size: var(--type-secondary); line-height: 1.6; }
+.my-discoveries-section button:focus-visible { outline: 3px solid var(--color-cyan); outline-offset: 3px; }
+@media (max-width: 760px) {
+  .my-discoveries-section { padding-block: 59px 65px; }
+  .discoveries-region-list, .discoveries-expedition-list { grid-template-columns: 1fr; }
+  .discovery-card-heading { flex-direction: column; }
+  .discovery-card-actions { align-items: stretch; flex-direction: column; }
+  .discovery-card-actions .button, .discovery-remove-button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .my-discoveries-section *, .my-discoveries-section *::before, .my-discoveries-section *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
